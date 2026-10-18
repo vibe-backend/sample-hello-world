@@ -1,4 +1,4 @@
-FROM node:22.22.2-bookworm-slim@sha256:9f6d5975c7dca860947d3915877f85607946403fc55349f39b4bc3688448bb6e AS build
+FROM node:26.12.0-bookworm-slim@sha256:298992629d69bbd5b2b03ad57094d8e4fcb3a8eeb7c4e25d29de656519568913 AS build
 RUN corepack enable
 WORKDIR /app
 COPY package.json pnpm-lock.yaml .nvmrc ./
