@@ -1,21 +1,14 @@
-.env
-.env.*
-!.env.example
-# Locks are build output.
-*.lock.md
-# Signing keys, public keys, build record, cache.
-.vibe/
-signing.key
-*.key
-manifest.json
-/out/
-llm_api_key.txt
-llm_base_url.txt
-*.secret
-image.tar
-target/
-*.log
-.DS_Store
+# backend/.gitignore holds the vibe project rules (vibe build reads it).
 node_modules/
 frontend/dist/
 *.tsbuildinfo
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+*.key
+*.secret
+llm_api_key.txt
+llm_base_url.txt
+image.tar

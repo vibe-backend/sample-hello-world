@@ -13,6 +13,13 @@
 A natural-language hello world API: `GET /hello/v1/dev/hello` returns
 `{"message":"hello world"}`.
 
+## Repository layout
+
+- `backend/` is the vibe project: `api/`, `providers/`, `Dockerfile`, `.env.example`,
+  and `.gitignore`. Generated locks (`*.lock.md`), `manifest.json`, and `.vibe/`
+  appear here after `vibe build` and are gitignored.
+- `frontend/` contains the React frontend.
+
 ## Local usage
 
 Install SDK `v1.0.0-rc.2`. The installer needs `curl`, `tar`, and an authenticated
@@ -23,6 +30,7 @@ Use `--runtime` on the install command to install `vibe-runtime` as well.
 curl -fsSL https://raw.githubusercontent.com/vibe-backend/sdk/v1.0.0-rc.2/scripts/vibe-install.sh -o vibe-install.sh
 sh vibe-install.sh install --version v1.0.0-rc.2
 export PATH="$HOME/.local/bin:$PATH"
+cd backend
 cp .env.example .env
 # Fill in the LLM settings in .env before building.
 vibe build
@@ -38,12 +46,28 @@ curl http://127.0.0.1:8080/hello/v1/dev/hello
 `vibe` starts interactive setup. In development, `vibe build` loads `.env`.
 `vibe run` defaults to `127.0.0.1:8080`, an in-memory database, and slug `dev`.
 
+Keyless check verified with SDK `v1.0.0-rc.2`, starting from the repository root:
+
+```sh
+cd backend && LLM_PROVIDER=fake vibe build && vibe run --allow-test-build
+```
+
+In another terminal:
+
+```sh
+curl http://127.0.0.1:8080/hello/v1/dev/hello
+```
+
+Test builds run only in development.
+
 ## Docker usage
 
-With BuildKit enabled, put your key in a gitignored file. Set `YOUR_KEY` locally;
+From the repository root, enter `backend/` and, with BuildKit enabled, put your
+key in a gitignored file there. Set `YOUR_KEY` locally;
 never put it in a build argument. Replace `your-model-name` with your model.
 
 ```sh
+cd backend
 printf '%s' "$YOUR_KEY" > llm_api_key.txt
 DOCKER_BUILDKIT=1 docker build \
   --secret id=llm_api_key,src=./llm_api_key.txt \
@@ -54,7 +78,7 @@ DOCKER_BUILDKIT=1 docker build \
 docker run --rm -p 8080:8080 sample-hello-world
 ```
 
-For a private proxy, save its URL in gitignored `llm_base_url.txt`. Replace the
+For a private proxy, save its URL in gitignored `backend/llm_base_url.txt`. Replace the
 `LLM_BASE_URL` build argument with
 `--secret id=llm_base_url,src=./llm_base_url.txt` and add
 `--build-arg LLM_ALLOW_PRIVATE_HOST=true`. This is local development only;
@@ -69,7 +93,10 @@ registry. The keyless test image (`VIBE_FAKE=1`) records no endpoint host.
 
 ## Keyless test image
 
+From the repository root:
+
 ```sh
+cd backend
 DOCKER_BUILDKIT=1 docker build --build-arg VIBE_FAKE=1 -t sample-hello-world:test .
 docker run --rm -p 8080:8080 sample-hello-world:test
 curl http://127.0.0.1:8080/hello/v1/dev/hello
@@ -94,7 +121,7 @@ pnpm dev
 ```
 
 Open http://localhost:3000. The development server proxies `/hello` and `/counter`
-to `127.0.0.1:8080`, so no CORS setup is needed. Run `vibe run` or the keyless
+to `127.0.0.1:8080`, so no CORS setup is needed. Run `vibe run` from `backend/` or the keyless
 Docker image above for the real hello API.
 
 | `PUBLIC_API_MOCK` | Hello | Counter |
@@ -134,7 +161,7 @@ The image contains `vibe-runtime`, `manifest.json`, and `.vibe/signing.pub`, run
 UID `10001`, and explicitly uses development mode with an in-memory database.
 It contains no LLM client, `signing.key`, or `LLM_*` environment settings.
 
-The Dockerfile pins SDK `VIBE_VERSION=v1.0.0-rc.2` and the Debian base digest,
+`backend/Dockerfile` pins SDK `VIBE_VERSION=v1.0.0-rc.2` and the Debian base digest,
 verifies both archives against `SHA256SUMS`, and checks archive entry names.
 The `SHA256SUMS` digest (`VIBE_SHA256SUMS_SHA256`) is pinned for v1.0.0-rc.2;
 update it together with `VIBE_VERSION` when upgrading. Docker downloads
@@ -142,7 +169,7 @@ verify checksums; the local installer additionally verifies attestations.
 Release assets must be published before the Docker build can succeed.
 
 Locks (`*.lock.md`), `.vibe/` (including signing keys and cache), and
-`manifest.json` are generated build output and are not committed.
+`manifest.json` in `backend/` are generated build output and are not committed.
 
 ## 繁體中文
 
@@ -150,6 +177,13 @@ Locks (`*.lock.md`), `.vibe/` (including signing keys and cache), and
 
 這是以自然語言定義的 hello world API：`GET /hello/v1/dev/hello` 回傳
 `{"message":"hello world"}`。
+
+### 儲存庫結構
+
+- `backend/` 是 vibe 專案，包含 `api/`、`providers/`、`Dockerfile`、`.env.example`
+  及 `.gitignore`。執行 `vibe build` 後，產生的鎖定檔（`*.lock.md`）、
+  `manifest.json` 及 `.vibe/` 會出現在此目錄，並由 Git 忽略。
+- `frontend/` 包含 React 前端。
 
 ### 本機使用
 
@@ -161,6 +195,7 @@ GitHub CLI（`gh auth login`）；會驗證校驗碼與 GitHub 證明。
 curl -fsSL https://raw.githubusercontent.com/vibe-backend/sdk/v1.0.0-rc.2/scripts/vibe-install.sh -o vibe-install.sh
 sh vibe-install.sh install --version v1.0.0-rc.2
 export PATH="$HOME/.local/bin:$PATH"
+cd backend
 cp .env.example .env
 # 建置前請先填妥 .env 的 LLM 設定。
 vibe build
@@ -176,12 +211,27 @@ curl http://127.0.0.1:8080/hello/v1/dev/hello
 `vibe` 啟動互動式設定。開發模式的 `vibe build` 會讀取 `.env`。
 `vibe run` 預設使用 `127.0.0.1:8080`、記憶體資料庫及 `dev` slug。
 
+以下不需金鑰的檢查已使用 SDK `v1.0.0-rc.2` 驗證，從儲存庫根目錄執行：
+
+```sh
+cd backend && LLM_PROVIDER=fake vibe build && vibe run --allow-test-build
+```
+
+在另一個終端機執行：
+
+```sh
+curl http://127.0.0.1:8080/hello/v1/dev/hello
+```
+
+測試建置只能在開發模式執行。
+
 ### Docker 使用
 
-啟用 BuildKit，將金鑰存入已被 Git 忽略的檔案。在本機設定 `YOUR_KEY`；
+從儲存庫根目錄進入 `backend/`，啟用 BuildKit，將金鑰存入該目錄下已被 Git 忽略的檔案。在本機設定 `YOUR_KEY`；
 不要將金鑰放進建置參數。將 `your-model-name` 換成所需模型。
 
 ```sh
+cd backend
 printf '%s' "$YOUR_KEY" > llm_api_key.txt
 DOCKER_BUILDKIT=1 docker build \
   --secret id=llm_api_key,src=./llm_api_key.txt \
@@ -192,7 +242,7 @@ DOCKER_BUILDKIT=1 docker build \
 docker run --rm -p 8080:8080 sample-hello-world
 ```
 
-私人代理的 URL 請存入已被 Git 忽略的 `llm_base_url.txt`。
+私人代理的 URL 請存入已被 Git 忽略的 `backend/llm_base_url.txt`。
 將 `LLM_BASE_URL` 建置參數改為
 `--secret id=llm_base_url,src=./llm_base_url.txt`，並加上
 `--build-arg LLM_ALLOW_PRIVATE_HOST=true`。這僅限本機開發；
@@ -207,7 +257,10 @@ CI 與正式環境會拒絕私人主機。`LLM_API_STYLE=chat|responses`
 
 ### 不需金鑰的測試映像檔
 
+從儲存庫根目錄執行：
+
 ```sh
+cd backend
 DOCKER_BUILDKIT=1 docker build --build-arg VIBE_FAKE=1 -t sample-hello-world:test .
 docker run --rm -p 8080:8080 sample-hello-world:test
 curl http://127.0.0.1:8080/hello/v1/dev/hello
@@ -231,7 +284,7 @@ pnpm dev
 ```
 
 開啟 http://localhost:3000。開發伺服器會將 `/hello` 與 `/counter`
-代理至 `127.0.0.1:8080`，不需設定 CORS。請執行 `vibe run` 或上方不需金鑰的
+代理至 `127.0.0.1:8080`，不需設定 CORS。請在 `backend/` 執行 `vibe run` 或使用上方不需金鑰的
 Docker 映像檔，提供真實的 hello API。
 
 | `PUBLIC_API_MOCK` | 問候訊息 | 計數器 |
@@ -271,7 +324,7 @@ Compose 建置參數也支援 `PUBLIC_API_SLUG`（未設定或空值時採用 `d
 以 UID `10001` 執行，並明確設定開發模式與記憶體資料庫。
 不含 LLM 用戶端、`signing.key` 或 `LLM_*` 環境設定。
 
-Dockerfile 固定 SDK `VIBE_VERSION=v1.0.0-rc.2` 與 Debian 基底摘要，
+`backend/Dockerfile` 固定 SDK `VIBE_VERSION=v1.0.0-rc.2` 與 Debian 基底摘要，
 依 `SHA256SUMS` 驗證兩個壓縮檔，並檢查封裝項目名稱。
 `SHA256SUMS` 摘要（`VIBE_SHA256SUMS_SHA256`）已固定為 v1.0.0-rc.2 的版本；
 升級時必須與 `VIBE_VERSION` 一起更新。
@@ -279,4 +332,4 @@ Docker 下載會驗證校驗碼；本機安裝程式還會驗證證明。
 必須等發行資產發布後，Docker 建置才能成功。
 
 鎖定檔（`*.lock.md`）、`.vibe/`（含簽署金鑰與快取）及 `manifest.json`
-都是產生的建置輸出，不提交到儲存庫。
+都是 `backend/` 中產生的建置輸出，不提交到儲存庫。

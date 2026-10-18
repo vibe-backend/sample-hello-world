@@ -20,3 +20,7 @@ updates:
     directory: /frontend
     schedule:
       interval: weekly
+  - package-ecosystem: docker
+    directory: /backend
+    schedule:
+      interval: weekly

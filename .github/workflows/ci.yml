@@ -17,7 +17,7 @@ jobs:
       # Until v1.0.0-rc.2 assets are published, download fails.
       # Re-run via workflow_dispatch after publication.
       - name: Build keyless test image
-        run: DOCKER_BUILDKIT=1 docker build --build-arg VIBE_FAKE=1 -t sample-hello-world:ci .
+        run: DOCKER_BUILDKIT=1 docker build --build-arg VIBE_FAKE=1 -t sample-hello-world:ci backend
       - name: Smoke test
         shell: bash
         run: |

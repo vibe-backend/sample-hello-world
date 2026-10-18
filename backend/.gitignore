@@ -1,0 +1,18 @@
+.env
+.env.*
+!.env.example
+# Locks are build output.
+*.lock.md
+# Signing keys, public keys, build record, cache.
+.vibe/
+signing.key
+*.key
+manifest.json
+/out/
+llm_api_key.txt
+llm_base_url.txt
+*.secret
+image.tar
+target/
+*.log
+.DS_Store
