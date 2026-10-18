@@ -2,7 +2,7 @@ services:
   runtime:
     # For a real LLM build, build the image as the README describes and set the image.
     build:
-      context: .
+      context: ./backend
       args:
         VIBE_FAKE: "1"
     image: sample-hello-world:test
