@@ -9,7 +9,7 @@ ARG PUBLIC_API_SLUG=dev
 ENV PUBLIC_API_MOCK=$PUBLIC_API_MOCK PUBLIC_API_SLUG=$PUBLIC_API_SLUG
 RUN pnpm run build
 
-FROM nginxinc/nginx-unprivileged:1.30-alpine@sha256:782bb89768cc87b7f95c18b95baa1af250e5d451f26794f59363540161147c01
+FROM nginxinc/nginx-unprivileged:1.31-alpine@sha256:378d0c32f6562f7fd9629170797f57d2b953aa09be983b3daaf4809bb039ca00
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 8080
