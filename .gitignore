@@ -16,3 +16,5 @@ image.tar
 target/
 *.log
 .DS_Store
+node_modules/
+frontend/dist/
