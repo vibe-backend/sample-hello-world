@@ -78,6 +78,56 @@ curl http://127.0.0.1:8080/hello/v1/dev/hello
 The fake provider supports this constant response. Only this image adds
 `--allow-test-build`; test builds run only in development.
 
+## Frontend
+
+`frontend/` is a small bilingual React page showing the hello message and a +1
+counter. The counter API is expected with SDK v1.0.0-rc.4 and is not part of this
+repo yet; this repo pins rc.2. Until the repo upgrades and adds the counter API,
+`PUBLIC_API_MOCK=off` shows the counter error state (404) because the runtime has
+no counter route.
+
+```sh
+cd frontend
+nvm use
+pnpm install
+pnpm dev
+```
+
+Open http://localhost:3000. The development server proxies `/hello` and `/counter`
+to `127.0.0.1:8080`, so no CORS setup is needed. Run `vibe run` or the keyless
+Docker image above for the real hello API.
+
+| `PUBLIC_API_MOCK` | Hello | Counter |
+| --- | --- | --- |
+| `all` | Mock | Mock |
+| `counter` (default) | Real API | Mock |
+| `off` | Real API | Real API |
+
+Use `PUBLIC_API_MOCK=all pnpm dev` without a backend. Once the counter API ships,
+use `PUBLIC_API_MOCK=off pnpm dev`, or change `DEFAULT_MOCK_MODE` to `"off"` in
+`frontend/src/api/config.ts`. A badge identifies mock data. Mock state lives in
+memory and resets on page reload; `PUBLIC_API_MOCK_DELAY_MS` defaults to 300.
+
+`PUBLIC_API_SLUG` defaults to `dev`: paths include `/hello/v1/dev/hello`,
+`/counter/v1/dev/counter`, and `/counter/v1/dev/counter/increment` (POST).
+Set it to an empty string to omit the slug segment, e.g. `/hello/v1/hello`.
+See `frontend/.env.example` for configuration, including `API_PROXY_TARGET`.
+Public variables are baked into production builds.
+
+From `frontend/`, run `pnpm test`, `pnpm run lint`, and `pnpm run build`.
+
+From the repository root:
+
+```sh
+docker compose up --build
+```
+
+Open http://127.0.0.1:8081/. This starts a keyless runtime and nginx frontend,
+with a mocked counter until its API ships. To build with real APIs, use
+`PUBLIC_API_MOCK=off docker compose up --build`. Compose build arguments accept
+`PUBLIC_API_SLUG` too (the default expression uses `dev` for unset or empty values;
+for a slugless image, build with `docker build --build-arg PUBLIC_API_SLUG= frontend`).
+
 ## Image and build outputs
 
 The image contains `vibe-runtime`, `manifest.json`, and `.vibe/signing.pub`, runs as
@@ -165,6 +215,55 @@ curl http://127.0.0.1:8080/hello/v1/dev/hello
 
 fake 提供者支援此固定回應。只有此映像檔會加上 `--allow-test-build`；
 測試建置只能在開發模式執行。
+
+### 前端
+
+`frontend/` 是簡單的中英文 React 頁面，顯示 API 問候訊息及可加一的計數器。
+計數器 API 預計隨 SDK v1.0.0-rc.4 推出，尚未包含在本儲存庫；本儲存庫固定使用 rc.2。
+在本儲存庫升級並加入計數器 API 前，`PUBLIC_API_MOCK=off` 會顯示計數器錯誤狀態
+（404），因為 runtime 沒有計數器路由。
+
+```sh
+cd frontend
+nvm use
+pnpm install
+pnpm dev
+```
+
+開啟 http://localhost:3000。開發伺服器會將 `/hello` 與 `/counter`
+代理至 `127.0.0.1:8080`，不需設定 CORS。請執行 `vibe run` 或上方不需金鑰的
+Docker 映像檔，提供真實的 hello API。
+
+| `PUBLIC_API_MOCK` | 問候訊息 | 計數器 |
+| --- | --- | --- |
+| `all` | 示範資料 | 示範資料 |
+| `counter`（預設） | 真實 API | 示範資料 |
+| `off` | 真實 API | 真實 API |
+
+不啟動後端時，可使用 `PUBLIC_API_MOCK=all pnpm dev`。計數器 API 推出後，
+使用 `PUBLIC_API_MOCK=off pnpm dev`，或將 `frontend/src/api/config.ts` 的
+`DEFAULT_MOCK_MODE` 改為 `"off"`。頁面會以標籤標示示範資料。
+示範計數儲存在記憶體，重新載入頁面即重設；`PUBLIC_API_MOCK_DELAY_MS` 預設為 300。
+
+`PUBLIC_API_SLUG` 預設為 `dev`，路徑包括 `/hello/v1/dev/hello`、
+`/counter/v1/dev/counter` 及 `/counter/v1/dev/counter/increment`（POST）。
+設為空字串可省略 slug 區段，例如 `/hello/v1/hello`。
+其他設定（包括 `API_PROXY_TARGET`）請參閱 `frontend/.env.example`。
+公開變數會在正式建置時寫入前端檔案。
+
+在 `frontend/` 執行 `pnpm test`、`pnpm run lint` 及 `pnpm run build`。
+
+在儲存庫根目錄執行：
+
+```sh
+docker compose up --build
+```
+
+開啟 http://127.0.0.1:8081/。此指令啟動不需金鑰的 runtime 及 nginx 前端；
+計數器 API 推出前使用示範計數器。需要真實 API 時，使用
+`PUBLIC_API_MOCK=off docker compose up --build`。
+Compose 建置參數也支援 `PUBLIC_API_SLUG`（未設定或空值時採用 `dev`；
+如需省略 slug，請以 `docker build --build-arg PUBLIC_API_SLUG= frontend` 建置）。
 
 ### 映像檔與建置輸出
 

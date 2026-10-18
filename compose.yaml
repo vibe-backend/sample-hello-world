@@ -1,0 +1,20 @@
+services:
+  runtime:
+    # For a real LLM build, build the image as the README describes and set the image.
+    build:
+      context: .
+      args:
+        VIBE_FAKE: "1"
+    image: sample-hello-world:test
+    ports:
+      - "127.0.0.1:8080:8080"
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        PUBLIC_API_MOCK: ${PUBLIC_API_MOCK:-counter}
+        PUBLIC_API_SLUG: ${PUBLIC_API_SLUG:-dev}
+    depends_on:
+      - runtime
+    ports:
+      - "127.0.0.1:8081:8080"
