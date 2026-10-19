@@ -2,7 +2,7 @@
 # Dev/demo image, not for production: manifest is development-signed.
 # Production signing: https://github.com/vibe-backend/sdk/issues/309
 FROM debian:trixie-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f AS download
-ARG VIBE_VERSION=v1.0.0-rc.2
+ARG VIBE_VERSION=v1.0.0-rc.4
 ARG TARGETARCH
 RUN set -eu; \
     apt-get update; apt-get install -y --no-install-recommends ca-certificates curl; \
@@ -20,8 +20,8 @@ COPY --from=download /dist/ /
 
 FROM debian:trixie-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f AS verify
 ARG TARGETARCH
-# Pinned digest of the v1.0.0-rc.2 SHA256SUMS; update it together with VIBE_VERSION.
-ARG VIBE_SHA256SUMS_SHA256=8a2aa2165e711a1d6734a3e1226b096c8543e963ef7e5de065681549896dde78
+# Pinned digest of the v1.0.0-rc.4 SHA256SUMS; update it together with VIBE_VERSION.
+ARG VIBE_SHA256SUMS_SHA256=198d69bf85fa1b858ef6bf12cc9fbe2bbff7ee4f52b25e0166404041ded5318c
 COPY --from=assets / /dist/
 RUN set -eu; \
     case "$TARGETARCH" in amd64) T=x86_64-unknown-linux-gnu ;; arm64) T=aarch64-unknown-linux-gnu ;; *) exit 1 ;; esac; \
@@ -46,6 +46,8 @@ COPY --from=verify /opt/vibe/bin/vibe /usr/local/bin/vibe
 WORKDIR /src
 COPY api/ ./api/
 COPY providers/ ./providers/
+COPY models/ ./models/
+COPY slugs.example.json ./
 # vibe build secret-scans the project and needs its .gitignore.
 COPY .gitignore ./
 ARG VIBE_FAKE=
@@ -82,6 +84,8 @@ RUN useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin vibe
 COPY --from=verify /opt/vibe/bin/vibe-runtime /usr/local/bin/vibe-runtime
 COPY --from=build /out/manifest.json /app/manifest.json
 COPY --from=build /out/.vibe/signing.pub /app/.vibe/signing.pub
+# vibe-runtime --artifact /app reads /app/slugs.example.json with the in-memory database (dev slug may write).
+COPY slugs.example.json /app/slugs.example.json
 ENV VIBE_ENV=development VIBE_DB=memory
 ARG VIBE_FAKE
 ENV VIBE_ALLOW_TEST_BUILD=${VIBE_FAKE:+1}

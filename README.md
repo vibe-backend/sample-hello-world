@@ -13,22 +13,33 @@
 A natural-language hello world API: `GET /hello/v1/dev/hello` returns
 `{"message":"hello world"}`.
 
+`GET /counter/v1/dev/counter` returns `{"count": n}` (0 on a fresh start).
+`POST /counter/v1/dev/counter/increment` increments atomically and returns the
+new value, e.g. `{"count":1}`. Both counter endpoints are public, require no auth,
+and use tenant slug `dev`. State is in-memory and resets when the runtime restarts.
+The counter uses structured markdown in `backend/models/counter/` and
+`backend/api/counter/`, so `vibe build` compiles it without calling the LLM,
+including the keyless fake build. `backend/slugs.example.json` grants the `dev`
+slug public write access; it is only read with the in-memory database (`vibe run`
+and the Docker image, which copies it to `/app`). The runtime limits public writes
+to 50 per client IP per day and 1000 per tenant per day; further POSTs return 429.
+
 ## Repository layout
 
-- `backend/` is the vibe project: `api/`, `providers/`, `Dockerfile`, `.env.example`,
+- `backend/` is the vibe project: `api/`, `models/`, `providers/`, `slugs.example.json`, `Dockerfile`, `.env.example`,
   and `.gitignore`. Generated locks (`*.lock.md`), `manifest.json`, and `.vibe/`
   appear here after `vibe build` and are gitignored.
 - `frontend/` contains the React frontend.
 
 ## Local usage
 
-Install SDK `v1.0.0-rc.2`. The installer needs `curl`, `tar`, and an authenticated
+Install SDK `v1.0.0-rc.4`. The installer needs `curl`, `tar`, and an authenticated
 GitHub CLI (`gh auth login`); it verifies checksums and GitHub attestations.
 Use `--runtime` on the install command to install `vibe-runtime` as well.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/vibe-backend/sdk/v1.0.0-rc.2/scripts/vibe-install.sh -o vibe-install.sh
-sh vibe-install.sh install --version v1.0.0-rc.2
+curl -fsSL https://raw.githubusercontent.com/vibe-backend/sdk/v1.0.0-rc.4/scripts/vibe-install.sh -o vibe-install.sh
+sh vibe-install.sh install --version v1.0.0-rc.4
 export PATH="$HOME/.local/bin:$PATH"
 cd backend
 cp .env.example .env
@@ -41,12 +52,14 @@ In another terminal:
 
 ```sh
 curl http://127.0.0.1:8080/hello/v1/dev/hello
+curl http://127.0.0.1:8080/counter/v1/dev/counter
+curl -X POST http://127.0.0.1:8080/counter/v1/dev/counter/increment
 ```
 
 `vibe` starts interactive setup. In development, `vibe build` loads `.env`.
 `vibe run` defaults to `127.0.0.1:8080`, an in-memory database, and slug `dev`.
 
-Keyless check verified with SDK `v1.0.0-rc.2`, starting from the repository root:
+Keyless check verified with SDK `v1.0.0-rc.4`, starting from the repository root:
 
 ```sh
 cd backend && LLM_PROVIDER=fake vibe build && vibe run --allow-test-build
@@ -56,6 +69,8 @@ In another terminal:
 
 ```sh
 curl http://127.0.0.1:8080/hello/v1/dev/hello
+curl http://127.0.0.1:8080/counter/v1/dev/counter
+curl -X POST http://127.0.0.1:8080/counter/v1/dev/counter/increment
 ```
 
 Test builds run only in development.
@@ -100,18 +115,18 @@ cd backend
 DOCKER_BUILDKIT=1 docker build --build-arg VIBE_FAKE=1 -t sample-hello-world:test .
 docker run --rm -p 8080:8080 sample-hello-world:test
 curl http://127.0.0.1:8080/hello/v1/dev/hello
+curl http://127.0.0.1:8080/counter/v1/dev/counter
+curl -X POST http://127.0.0.1:8080/counter/v1/dev/counter/increment
 ```
 
-The fake provider supports this constant response. Only this image adds
+The fake provider covers the hello constant response; the structured markdown counter
+needs no LLM. Only this image adds
 `--allow-test-build`; test builds run only in development.
 
 ## Frontend
 
 `frontend/` is a small bilingual React page showing the hello message and a +1
-counter. The counter API is expected with SDK v1.0.0-rc.4 and is not part of this
-repo yet; this repo pins rc.2. Until the repo upgrades and adds the counter API,
-`PUBLIC_API_MOCK=off` shows the counter error state (404) because the runtime has
-no counter route.
+counter. Both APIs ship with the backend.
 
 ```sh
 cd frontend
@@ -122,17 +137,17 @@ pnpm dev
 
 Open http://localhost:3000. The development server proxies `/hello` and `/counter`
 to `127.0.0.1:8080`, so no CORS setup is needed. Run `vibe run` from `backend/` or the keyless
-Docker image above for the real hello API.
+Docker image above for the real hello and counter APIs.
 
 | `PUBLIC_API_MOCK` | Hello | Counter |
 | --- | --- | --- |
 | `all` | Mock | Mock |
-| `counter` (default) | Real API | Mock |
-| `off` | Real API | Real API |
+| `counter` | Real API | Mock |
+| `off` (default) | Real API | Real API |
 
-Use `PUBLIC_API_MOCK=all pnpm dev` without a backend. Once the counter API ships,
-use `PUBLIC_API_MOCK=off pnpm dev`, or change `DEFAULT_MOCK_MODE` to `"off"` in
-`frontend/src/api/config.ts`. A badge identifies mock data. Mock state lives in
+The default is `off` (`DEFAULT_MOCK_MODE` in `frontend/src/api/config.ts`).
+Use `PUBLIC_API_MOCK=all pnpm dev` without a backend or `PUBLIC_API_MOCK=counter`
+to mock only the counter. A badge identifies mock data. Mock state lives in
 memory and resets on page reload; `PUBLIC_API_MOCK_DELAY_MS` defaults to 300.
 
 `PUBLIC_API_SLUG` defaults to `dev`: paths include `/hello/v1/dev/hello`,
@@ -150,23 +165,37 @@ docker compose up --build
 ```
 
 Open http://127.0.0.1:8081/. This starts a keyless runtime and nginx frontend,
-with a mocked counter until its API ships. To build with real APIs, use
-`PUBLIC_API_MOCK=off docker compose up --build`. Compose build arguments accept
+using the real counter API by default. Use
+`PUBLIC_API_MOCK=counter docker compose up --build` to mock it. In compose, nginx
+(fixed IP 10.231.0.10 on the compose network 10.231.0.0/24) overwrites
+`X-Forwarded-For` with the real client address and the runtime trusts only that IP
+via `VIBE_TRUSTED_PROXIES`, so each browser has its own 50-per-day quota and
+client-supplied `X-Forwarded-For` values are ignored. If 10.231.0.0/24 collides with
+a local network, change the subnet, nginx's `ipv4_address`, and
+`VIBE_TRUSTED_PROXIES` together. Compose build arguments accept
 `PUBLIC_API_SLUG` too (the default expression uses `dev` for unset or empty values;
 for a slugless image, build with `docker build --build-arg PUBLIC_API_SLUG= frontend`).
 
 ## Image and build outputs
 
-The image contains `vibe-runtime`, `manifest.json`, and `.vibe/signing.pub`, runs as
+The image contains `vibe-runtime`, `manifest.json`, `.vibe/signing.pub`, and
+`slugs.example.json`, runs as
 UID `10001`, and explicitly uses development mode with an in-memory database.
 It contains no LLM client, `signing.key`, or `LLM_*` environment settings.
 
-`backend/Dockerfile` pins SDK `VIBE_VERSION=v1.0.0-rc.2` and the Debian base digest,
+`backend/Dockerfile` pins SDK `VIBE_VERSION=v1.0.0-rc.4` and the Debian base digest,
 verifies both archives against `SHA256SUMS`, and checks archive entry names.
-The `SHA256SUMS` digest (`VIBE_SHA256SUMS_SHA256`) is pinned for v1.0.0-rc.2;
+The `SHA256SUMS` digest (`VIBE_SHA256SUMS_SHA256`) is pinned for v1.0.0-rc.4;
 update it together with `VIBE_VERSION` when upgrading. Docker downloads
 verify checksums; the local installer additionally verifies attestations.
 Release assets must be published before the Docker build can succeed.
+
+CI builds the keyless image, tests hello and counter GET 0 / POST 1 / GET 1,
+and sends 50 concurrent POSTs ending at exactly 51 from a second Docker network
+because of the per-IP quota. It also tests the compose stack through nginx
+(counter GET 0 / POST 1) and scans the image for keys. The compose test also sends
+49 POSTs with fake `X-Forwarded-For` values and checks the 51st write is rejected
+with 429, while a different real client still gets 200.
 
 Locks (`*.lock.md`), `.vibe/` (including signing keys and cache), and
 `manifest.json` in `backend/` are generated build output and are not committed.
@@ -178,22 +207,31 @@ Locks (`*.lock.md`), `.vibe/` (including signing keys and cache), and
 這是以自然語言定義的 hello world API：`GET /hello/v1/dev/hello` 回傳
 `{"message":"hello world"}`。
 
+`GET /counter/v1/dev/counter` 回傳 `{"count": n}`（全新啟動時為 0）。
+`POST /counter/v1/dev/counter/increment` 以原子操作加一並回傳新值，例如 `{"count":1}`。
+兩個計數器端點皆公開、無需驗證，使用租戶 slug `dev`；狀態儲存在記憶體，runtime 重啟即重設。
+計數器使用 `backend/models/counter/` 與 `backend/api/counter/` 中的結構化 Markdown，
+因此 `vibe build` 不需呼叫 LLM 即可編譯，包含不需金鑰的 fake 建置。
+`backend/slugs.example.json` 授予 `dev` slug 公開寫入權限；僅使用記憶體資料庫時讀取
+（`vibe run` 及將此檔複製至 `/app` 的 Docker 映像檔）。runtime 限制公開寫入為每個用戶端
+IP 每日 50 次、每個租戶每日 1000 次；超過後 POST 回傳 429。
+
 ### 儲存庫結構
 
-- `backend/` 是 vibe 專案，包含 `api/`、`providers/`、`Dockerfile`、`.env.example`
+- `backend/` 是 vibe 專案，包含 `api/`、`models/`、`providers/`、`slugs.example.json`、`Dockerfile`、`.env.example`
   及 `.gitignore`。執行 `vibe build` 後，產生的鎖定檔（`*.lock.md`）、
   `manifest.json` 及 `.vibe/` 會出現在此目錄，並由 Git 忽略。
 - `frontend/` 包含 React 前端。
 
 ### 本機使用
 
-安裝 SDK `v1.0.0-rc.2`。安裝程式需要 `curl`、`tar`，以及已驗證登入的
+安裝 SDK `v1.0.0-rc.4`。安裝程式需要 `curl`、`tar`，以及已驗證登入的
 GitHub CLI（`gh auth login`）；會驗證校驗碼與 GitHub 證明。
 若也要安裝 `vibe-runtime`，請在安裝指令加上 `--runtime`。
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/vibe-backend/sdk/v1.0.0-rc.2/scripts/vibe-install.sh -o vibe-install.sh
-sh vibe-install.sh install --version v1.0.0-rc.2
+curl -fsSL https://raw.githubusercontent.com/vibe-backend/sdk/v1.0.0-rc.4/scripts/vibe-install.sh -o vibe-install.sh
+sh vibe-install.sh install --version v1.0.0-rc.4
 export PATH="$HOME/.local/bin:$PATH"
 cd backend
 cp .env.example .env
@@ -206,12 +244,14 @@ vibe run
 
 ```sh
 curl http://127.0.0.1:8080/hello/v1/dev/hello
+curl http://127.0.0.1:8080/counter/v1/dev/counter
+curl -X POST http://127.0.0.1:8080/counter/v1/dev/counter/increment
 ```
 
 `vibe` 啟動互動式設定。開發模式的 `vibe build` 會讀取 `.env`。
 `vibe run` 預設使用 `127.0.0.1:8080`、記憶體資料庫及 `dev` slug。
 
-以下不需金鑰的檢查已使用 SDK `v1.0.0-rc.2` 驗證，從儲存庫根目錄執行：
+以下不需金鑰的檢查已使用 SDK `v1.0.0-rc.4` 驗證，從儲存庫根目錄執行：
 
 ```sh
 cd backend && LLM_PROVIDER=fake vibe build && vibe run --allow-test-build
@@ -221,6 +261,8 @@ cd backend && LLM_PROVIDER=fake vibe build && vibe run --allow-test-build
 
 ```sh
 curl http://127.0.0.1:8080/hello/v1/dev/hello
+curl http://127.0.0.1:8080/counter/v1/dev/counter
+curl -X POST http://127.0.0.1:8080/counter/v1/dev/counter/increment
 ```
 
 測試建置只能在開發模式執行。
@@ -264,17 +306,18 @@ cd backend
 DOCKER_BUILDKIT=1 docker build --build-arg VIBE_FAKE=1 -t sample-hello-world:test .
 docker run --rm -p 8080:8080 sample-hello-world:test
 curl http://127.0.0.1:8080/hello/v1/dev/hello
+curl http://127.0.0.1:8080/counter/v1/dev/counter
+curl -X POST http://127.0.0.1:8080/counter/v1/dev/counter/increment
 ```
 
-fake 提供者支援此固定回應。只有此映像檔會加上 `--allow-test-build`；
+fake 提供者涵蓋 hello 固定回應；計數器使用結構化 Markdown，不需 LLM。
+只有此映像檔會加上 `--allow-test-build`；
 測試建置只能在開發模式執行。
 
 ### 前端
 
 `frontend/` 是簡單的中英文 React 頁面，顯示 API 問候訊息及可加一的計數器。
-計數器 API 預計隨 SDK v1.0.0-rc.4 推出，尚未包含在本儲存庫；本儲存庫固定使用 rc.2。
-在本儲存庫升級並加入計數器 API 前，`PUBLIC_API_MOCK=off` 會顯示計數器錯誤狀態
-（404），因為 runtime 沒有計數器路由。
+兩個 API 皆隨後端提供。
 
 ```sh
 cd frontend
@@ -285,17 +328,17 @@ pnpm dev
 
 開啟 http://localhost:3000。開發伺服器會將 `/hello` 與 `/counter`
 代理至 `127.0.0.1:8080`，不需設定 CORS。請在 `backend/` 執行 `vibe run` 或使用上方不需金鑰的
-Docker 映像檔，提供真實的 hello API。
+Docker 映像檔，提供真實的 hello 與計數器 API。
 
 | `PUBLIC_API_MOCK` | 問候訊息 | 計數器 |
 | --- | --- | --- |
 | `all` | 示範資料 | 示範資料 |
-| `counter`（預設） | 真實 API | 示範資料 |
-| `off` | 真實 API | 真實 API |
+| `counter` | 真實 API | 示範資料 |
+| `off`（預設） | 真實 API | 真實 API |
 
-不啟動後端時，可使用 `PUBLIC_API_MOCK=all pnpm dev`。計數器 API 推出後，
-使用 `PUBLIC_API_MOCK=off pnpm dev`，或將 `frontend/src/api/config.ts` 的
-`DEFAULT_MOCK_MODE` 改為 `"off"`。頁面會以標籤標示示範資料。
+預設為 `off`（`frontend/src/api/config.ts` 中的 `DEFAULT_MOCK_MODE`）。
+不啟動後端時，可使用 `PUBLIC_API_MOCK=all pnpm dev`，或使用 `PUBLIC_API_MOCK=counter`
+僅模擬計數器。頁面會以標籤標示示範資料。
 示範計數儲存在記憶體，重新載入頁面即重設；`PUBLIC_API_MOCK_DELAY_MS` 預設為 300。
 
 `PUBLIC_API_SLUG` 預設為 `dev`，路徑包括 `/hello/v1/dev/hello`、
@@ -313,23 +356,32 @@ docker compose up --build
 ```
 
 開啟 http://127.0.0.1:8081/。此指令啟動不需金鑰的 runtime 及 nginx 前端；
-計數器 API 推出前使用示範計數器。需要真實 API 時，使用
-`PUBLIC_API_MOCK=off docker compose up --build`。
+預設使用真實計數器 API。使用 `PUBLIC_API_MOCK=counter docker compose up --build` 可模擬計數器。
+在 compose 中，nginx（在 compose 網路 10.231.0.0/24 上固定 IP 為 10.231.0.10）
+以真實用戶端位址覆寫 `X-Forwarded-For`，runtime 透過 `VIBE_TRUSTED_PROXIES` 僅信任該 IP，
+因此每個瀏覽器各有每日 50 次的配額，並忽略用戶端提供的 `X-Forwarded-For` 值。
+若 10.231.0.0/24 與本機網路衝突，請一併修改子網路、nginx 的 `ipv4_address` 及 `VIBE_TRUSTED_PROXIES`。
 Compose 建置參數也支援 `PUBLIC_API_SLUG`（未設定或空值時採用 `dev`；
 如需省略 slug，請以 `docker build --build-arg PUBLIC_API_SLUG= frontend` 建置）。
 
 ### 映像檔與建置輸出
 
-映像檔包含 `vibe-runtime`、`manifest.json` 與 `.vibe/signing.pub`，
+映像檔包含 `vibe-runtime`、`manifest.json`、`.vibe/signing.pub` 與 `slugs.example.json`，
 以 UID `10001` 執行，並明確設定開發模式與記憶體資料庫。
 不含 LLM 用戶端、`signing.key` 或 `LLM_*` 環境設定。
 
-`backend/Dockerfile` 固定 SDK `VIBE_VERSION=v1.0.0-rc.2` 與 Debian 基底摘要，
+`backend/Dockerfile` 固定 SDK `VIBE_VERSION=v1.0.0-rc.4` 與 Debian 基底摘要，
 依 `SHA256SUMS` 驗證兩個壓縮檔，並檢查封裝項目名稱。
-`SHA256SUMS` 摘要（`VIBE_SHA256SUMS_SHA256`）已固定為 v1.0.0-rc.2 的版本；
+`SHA256SUMS` 摘要（`VIBE_SHA256SUMS_SHA256`）已固定為 v1.0.0-rc.4 的版本；
 升級時必須與 `VIBE_VERSION` 一起更新。
 Docker 下載會驗證校驗碼；本機安裝程式還會驗證證明。
 必須等發行資產發布後，Docker 建置才能成功。
+
+CI 建置不需金鑰的映像檔，測試 hello 及計數器 GET 0 / POST 1 / GET 1，
+並因每個 IP 的配額限制，從第二個 Docker 網路送出 50 個並行 POST，確認最終值恰為 51。
+CI 也透過 nginx 測試 compose 堆疊（計數器 GET 0 / POST 1），並掃描映像檔中的金鑰。
+compose 測試還會送出 49 個帶有偽造 `X-Forwarded-For` 值的 POST，確認第 51 次寫入被拒絕並回傳 429，
+而不同的真實用戶端仍可取得 200。
 
 鎖定檔（`*.lock.md`）、`.vibe/`（含簽署金鑰與快取）及 `manifest.json`
 都是 `backend/` 中產生的建置輸出，不提交到儲存庫。
