@@ -185,10 +185,9 @@ It contains no LLM client, `signing.key`, or `LLM_*` environment settings.
 
 `backend/Dockerfile` pins SDK `VIBE_VERSION=v1.0.0-rc.4` and the Debian base digest,
 verifies both archives against `SHA256SUMS`, and checks archive entry names.
-The `SHA256SUMS` digest (`VIBE_SHA256SUMS_SHA256`) is a placeholder for v1.0.0-rc.4;
+The `SHA256SUMS` digest (`VIBE_SHA256SUMS_SHA256`) is pinned for v1.0.0-rc.4;
 update it together with `VIBE_VERSION` when upgrading. Docker downloads
 verify checksums; the local installer additionally verifies attestations.
-The rc.4 digest must be filled in once the rc.4 release assets are published.
 Release assets must be published before the Docker build can succeed.
 
 CI builds the keyless image, tests hello and counter GET 0 / POST 1 / GET 1,
@@ -373,10 +372,9 @@ Compose 建置參數也支援 `PUBLIC_API_SLUG`（未設定或空值時採用 `d
 
 `backend/Dockerfile` 固定 SDK `VIBE_VERSION=v1.0.0-rc.4` 與 Debian 基底摘要，
 依 `SHA256SUMS` 驗證兩個壓縮檔，並檢查封裝項目名稱。
-`SHA256SUMS` 摘要（`VIBE_SHA256SUMS_SHA256`）目前為 v1.0.0-rc.4 的預留值；
+`SHA256SUMS` 摘要（`VIBE_SHA256SUMS_SHA256`）已固定為 v1.0.0-rc.4 的版本；
 升級時必須與 `VIBE_VERSION` 一起更新。
 Docker 下載會驗證校驗碼；本機安裝程式還會驗證證明。
-rc.4 發行資產發布後，必須填入 rc.4 摘要。
 必須等發行資產發布後，Docker 建置才能成功。
 
 CI 建置不需金鑰的映像檔，測試 hello 及計數器 GET 0 / POST 1 / GET 1，

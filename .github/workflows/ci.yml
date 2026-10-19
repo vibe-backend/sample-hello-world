@@ -14,8 +14,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # Until v1.0.0-rc.4 assets are published, download fails.
-      # Re-run via workflow_dispatch after publication.
       - name: Build keyless test image
         run: DOCKER_BUILDKIT=1 docker build --build-arg VIBE_FAKE=1 -t sample-hello-world:ci backend
       - name: Hello and counter API tests

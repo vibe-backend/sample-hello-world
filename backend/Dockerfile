@@ -21,8 +21,7 @@ COPY --from=download /dist/ /
 FROM debian:trixie-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f AS verify
 ARG TARGETARCH
 # Pinned digest of the v1.0.0-rc.4 SHA256SUMS; update it together with VIBE_VERSION.
-# Placeholder until the v1.0.0-rc.4 release assets are published; replace with sha256 of its SHA256SUMS.
-ARG VIBE_SHA256SUMS_SHA256=0000000000000000000000000000000000000000000000000000000000000000
+ARG VIBE_SHA256SUMS_SHA256=198d69bf85fa1b858ef6bf12cc9fbe2bbff7ee4f52b25e0166404041ded5318c
 COPY --from=assets / /dist/
 RUN set -eu; \
     case "$TARGETARCH" in amd64) T=x86_64-unknown-linux-gnu ;; arm64) T=aarch64-unknown-linux-gnu ;; *) exit 1 ;; esac; \
