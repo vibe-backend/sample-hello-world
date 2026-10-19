@@ -14,25 +14,57 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # Until v1.0.0-rc.2 assets are published, download fails.
+      # Until v1.0.0-rc.4 assets are published, download fails.
       # Re-run via workflow_dispatch after publication.
       - name: Build keyless test image
         run: DOCKER_BUILDKIT=1 docker build --build-arg VIBE_FAKE=1 -t sample-hello-world:ci backend
-      - name: Smoke test
+      - name: Hello and counter API tests
         shell: bash
         run: |
           set -euo pipefail
           docker run -d --name hello -p 8080:8080 sample-hello-world:ci
-          trap 'docker stop hello >/dev/null' EXIT
+          cleanup() {
+            result=$?
+            if [ "$result" -ne 0 ]; then docker logs hello; fi
+            docker rm -f hello >/dev/null 2>&1 || true
+            docker network rm counter-alt >/dev/null 2>&1 || true
+            exit "$result"
+          }
+          trap cleanup EXIT
+          ready=false
           for attempt in $(seq 1 60); do
             status=$(curl -s -o /tmp/hello-body -w '%{http_code}' http://127.0.0.1:8080/hello/v1/dev/hello || true)
             if [ "$status" = 200 ] && jq -e '. == {"message":"hello world"}' /tmp/hello-body >/dev/null; then
-              exit 0
+              ready=true
+              break
             fi
             sleep 1
           done
-          docker logs hello
-          exit 1
+          "$ready" || exit 1
+          expect() {
+            local method=$1 url=$2 filter=$3 status
+            status=$(curl -sS -o /tmp/api-body -w '%{http_code}' -X "$method" "$url")
+            printf '%s %s: %s %s\n' "$method" "$url" "$status" "$(cat /tmp/api-body)"
+            [ "$status" = 200 ]
+            jq -e "$filter" /tmp/api-body >/dev/null
+          }
+          B=http://127.0.0.1:8080
+          expect GET "$B/counter/v1/dev/counter" '. == {"count":0}'
+          expect POST "$B/counter/v1/dev/counter/increment" '. == {"count":1}'
+          expect GET "$B/counter/v1/dev/counter" '. == {"count":1}'
+          # The SDK runtime fixes public writes at 50 per client IP per day.
+          # The sequential POST used one; send the 50 concurrent POSTs from a second
+          # client address by attaching hello to a second Docker network and calling its address there.
+          docker network create counter-alt >/dev/null
+          docker network connect counter-alt hello
+          alt=$(docker inspect -f '{{(index .NetworkSettings.Networks "counter-alt").IPAddress}}' hello)
+          test -n "$alt"
+          seq 50 | xargs -P 50 -I{} curl -sS -o - -w '\n%{http_code}\n' -X POST "http://$alt:8080/counter/v1/dev/counter/increment" > /tmp/concurrent
+          awk '/^[0-9][0-9][0-9]$/ { n++; if ($0 != "200") bad++ } END { exit !(n == 50 && bad == 0) }' /tmp/concurrent
+          grep '^{' /tmp/concurrent | jq -s -e 'map(.count) | sort == [range(2;52)]' >/dev/null
+          printf '%s\n' 'concurrent: 50 x 200, counts 2..51 unique'
+          expect GET "$B/counter/v1/dev/counter" '. == {"count":51}'
+          expect GET "$B/hello/v1/dev/hello" '. == {"message":"hello world"}'
       - name: Scan all image layers and configuration
         shell: bash
         run: |
@@ -111,14 +143,25 @@ jobs:
           set -euo pipefail
           trap 'docker compose logs; docker compose down' EXIT
           docker compose up -d --build
+          ready=false
           for attempt in $(seq 1 60); do
             if curl -fsS http://127.0.0.1:8081/ > /tmp/frontend-index &&
                grep -q '<div id="root">' /tmp/frontend-index &&
                curl -fsS http://127.0.0.1:8081/hello/v1/dev/hello > /tmp/frontend-hello &&
                jq -e '. == {"message":"hello world"}' /tmp/frontend-hello >/dev/null; then
               test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8081/some/spa/route)" = 200
-              exit 0
+              ready=true
+              break
             fi
             sleep 1
           done
-          exit 1
+          "$ready" || exit 1
+          status=$(curl -sS -o /tmp/frontend-counter -w '%{http_code}' http://127.0.0.1:8081/counter/v1/dev/counter)
+          printf 'GET counter: %s %s\n' "$status" "$(cat /tmp/frontend-counter)"
+          [ "$status" = 200 ]
+          jq -e '. == {"count":0}' /tmp/frontend-counter >/dev/null
+          status=$(curl -sS -o /tmp/frontend-counter -w '%{http_code}' -X POST http://127.0.0.1:8081/counter/v1/dev/counter/increment)
+          printf 'POST counter: %s %s\n' "$status" "$(cat /tmp/frontend-counter)"
+          [ "$status" = 200 ]
+          jq -e '. == {"count":1}' /tmp/frontend-counter >/dev/null
+          exit 0

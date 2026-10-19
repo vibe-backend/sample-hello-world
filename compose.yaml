@@ -12,7 +12,7 @@ services:
     build:
       context: ./frontend
       args:
-        PUBLIC_API_MOCK: ${PUBLIC_API_MOCK:-counter}
+        PUBLIC_API_MOCK: ${PUBLIC_API_MOCK:-off}
         PUBLIC_API_SLUG: ${PUBLIC_API_SLUG:-dev}
     depends_on:
       - runtime

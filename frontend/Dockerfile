@@ -4,7 +4,7 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml .nvmrc ./
 RUN pnpm install --frozen-lockfile
 COPY . .
-ARG PUBLIC_API_MOCK=counter
+ARG PUBLIC_API_MOCK=off
 ARG PUBLIC_API_SLUG=dev
 ENV PUBLIC_API_MOCK=$PUBLIC_API_MOCK PUBLIC_API_SLUG=$PUBLIC_API_SLUG
 RUN pnpm run build

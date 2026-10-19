@@ -1,6 +1,6 @@
 export type MockMode = 'all' | 'counter' | 'off';
-// When the counter API ships, change this to "off" (or set PUBLIC_API_MOCK=off).
-export const DEFAULT_MOCK_MODE: MockMode = 'counter';
+// The counter API ships with the backend; mocks are opt-in (PUBLIC_API_MOCK=all|counter).
+export const DEFAULT_MOCK_MODE: MockMode = 'off';
 export function parseMockMode(value?: string): MockMode {
   if (value === 'all' || value === '1' || value === 'true') return 'all';
   if (value === 'off' || value === '0' || value === 'false') return 'off';
