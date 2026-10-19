@@ -6,6 +6,11 @@ services:
       args:
         VIBE_FAKE: "1"
     image: sample-hello-world:test
+    environment:
+      # Trust only the nginx container; never a broad range (host requests to the published runtime port arrive from the network gateway, which stays untrusted).
+      VIBE_TRUSTED_PROXIES: "10.231.0.10"
+    networks:
+      - app
     ports:
       - "127.0.0.1:8080:8080"
   frontend:
@@ -18,3 +23,12 @@ services:
       - runtime
     ports:
       - "127.0.0.1:8081:8080"
+    networks:
+      app:
+        ipv4_address: 10.231.0.10
+
+networks:
+  app:
+    ipam:
+      config:
+        - subnet: 10.231.0.0/24

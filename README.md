@@ -22,7 +22,7 @@ The counter uses structured markdown in `backend/models/counter/` and
 including the keyless fake build. `backend/slugs.example.json` grants the `dev`
 slug public write access; it is only read with the in-memory database (`vibe run`
 and the Docker image, which copies it to `/app`). The runtime limits public writes
-to 50 per client IP per day and 1000 per tenant; further POSTs return 429.
+to 50 per client IP per day and 1000 per tenant per day; further POSTs return 429.
 
 ## Repository layout
 
@@ -166,8 +166,13 @@ docker compose up --build
 
 Open http://127.0.0.1:8081/. This starts a keyless runtime and nginx frontend,
 using the real counter API by default. Use
-`PUBLIC_API_MOCK=counter docker compose up --build` to mock it. Behind nginx, all
-browsers share the nginx container's address for the public write quota. Compose build arguments accept
+`PUBLIC_API_MOCK=counter docker compose up --build` to mock it. In compose, nginx
+(fixed IP 10.231.0.10 on the compose network 10.231.0.0/24) overwrites
+`X-Forwarded-For` with the real client address and the runtime trusts only that IP
+via `VIBE_TRUSTED_PROXIES`, so each browser has its own 50-per-day quota and
+client-supplied `X-Forwarded-For` values are ignored. If 10.231.0.0/24 collides with
+a local network, change the subnet, nginx's `ipv4_address`, and
+`VIBE_TRUSTED_PROXIES` together. Compose build arguments accept
 `PUBLIC_API_SLUG` too (the default expression uses `dev` for unset or empty values;
 for a slugless image, build with `docker build --build-arg PUBLIC_API_SLUG= frontend`).
 
@@ -189,7 +194,9 @@ Release assets must be published before the Docker build can succeed.
 CI builds the keyless image, tests hello and counter GET 0 / POST 1 / GET 1,
 and sends 50 concurrent POSTs ending at exactly 51 from a second Docker network
 because of the per-IP quota. It also tests the compose stack through nginx
-(counter GET 0 / POST 1) and scans the image for keys.
+(counter GET 0 / POST 1) and scans the image for keys. The compose test also sends
+49 POSTs with fake `X-Forwarded-For` values and checks the 51st write is rejected
+with 429, while a different real client still gets 200.
 
 Locks (`*.lock.md`), `.vibe/` (including signing keys and cache), and
 `manifest.json` in `backend/` are generated build output and are not committed.
@@ -351,7 +358,10 @@ docker compose up --build
 
 開啟 http://127.0.0.1:8081/。此指令啟動不需金鑰的 runtime 及 nginx 前端；
 預設使用真實計數器 API。使用 `PUBLIC_API_MOCK=counter docker compose up --build` 可模擬計數器。
-經由 nginx 時，所有瀏覽器共用 nginx 容器的位址計算公開寫入配額。
+在 compose 中，nginx（在 compose 網路 10.231.0.0/24 上固定 IP 為 10.231.0.10）
+以真實用戶端位址覆寫 `X-Forwarded-For`，runtime 透過 `VIBE_TRUSTED_PROXIES` 僅信任該 IP，
+因此每個瀏覽器各有每日 50 次的配額，並忽略用戶端提供的 `X-Forwarded-For` 值。
+若 10.231.0.0/24 與本機網路衝突，請一併修改子網路、nginx 的 `ipv4_address` 及 `VIBE_TRUSTED_PROXIES`。
 Compose 建置參數也支援 `PUBLIC_API_SLUG`（未設定或空值時採用 `dev`；
 如需省略 slug，請以 `docker build --build-arg PUBLIC_API_SLUG= frontend` 建置）。
 
@@ -372,6 +382,8 @@ rc.4 發行資產發布後，必須填入 rc.4 摘要。
 CI 建置不需金鑰的映像檔，測試 hello 及計數器 GET 0 / POST 1 / GET 1，
 並因每個 IP 的配額限制，從第二個 Docker 網路送出 50 個並行 POST，確認最終值恰為 51。
 CI 也透過 nginx 測試 compose 堆疊（計數器 GET 0 / POST 1），並掃描映像檔中的金鑰。
+compose 測試還會送出 49 個帶有偽造 `X-Forwarded-For` 值的 POST，確認第 51 次寫入被拒絕並回傳 429，
+而不同的真實用戶端仍可取得 200。
 
 鎖定檔（`*.lock.md`）、`.vibe/`（含簽署金鑰與快取）及 `manifest.json`
 都是 `backend/` 中產生的建置輸出，不提交到儲存庫。
