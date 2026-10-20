@@ -7,10 +7,8 @@ export function parseMockMode(value?: string): MockMode {
   return value === 'counter' ? 'counter' : DEFAULT_MOCK_MODE;
 }
 export const mode = parseMockMode(import.meta.env.PUBLIC_API_MOCK);
-export const slug = import.meta.env.PUBLIC_API_SLUG ?? 'dev';
 const delay = Number(import.meta.env.PUBLIC_API_MOCK_DELAY_MS ?? 300);
 export const delayMs = Number.isFinite(delay) && delay >= 0 ? delay : 300;
-const segment = (value: string) => value === '' ? '' : `/${encodeURIComponent(value)}`;
-export const helloPath = (value = slug) => `/hello/v1${segment(value)}/hello`;
-export const counterPath = (value = slug) => `/counter/v1${segment(value)}/counter`;
-export const incrementPath = (value = slug) => `${counterPath(value)}/increment`;
+export const helloPath = () => '/api/web/v1/hello';
+export const counterPath = () => '/api/web/v1/counter';
+export const incrementPath = () => '/api/web/v1/increment-counter';

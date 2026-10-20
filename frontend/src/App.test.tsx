@@ -2,7 +2,7 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
-import { ApiError, type Api } from './api/client';
+import { ApiError, createApi, type Api } from './api/client';
 
 function makeApi() {
   return {
@@ -14,6 +14,19 @@ function makeApi() {
 beforeEach(() => { vi.spyOn(navigator, 'language', 'get').mockReturnValue('en'); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 describe('counter page', () => {
+  it('displays values from the real API response shape', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockImplementation(async (path) => {
+      if (path === '/api/web/v1/hello') return new Response('{"message":"hello world"}');
+      if (path === '/api/web/v1/counter') return new Response('{"value":3}');
+      if (path === '/api/web/v1/increment-counter') return new Response('{"value":4}');
+      throw new Error('Unexpected route');
+    });
+    const user = userEvent.setup();
+    render(<App api={createApi({ mode: 'off', fetchImpl })} />);
+    expect(await screen.findByText('3')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: '+1 Add one' }));
+    expect(await screen.findByText('4')).toBeTruthy();
+  });
   it('loads both operations in parallel and displays the results', async () => {
     const api = makeApi();
     let resolveHello!: (value: { message: string }) => void;

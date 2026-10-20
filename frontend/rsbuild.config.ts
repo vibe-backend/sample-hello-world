@@ -8,5 +8,5 @@ export default defineConfig({
   source: { entry: { index: './src/main.tsx' } },
   resolve: { alias: { '@': path.resolve(import.meta.dirname, './src') } },
   output: { distPath: { root: 'dist' } },
-  server: { port: 3000, proxy: { '/hello': { target, changeOrigin: false }, '/counter': { target, changeOrigin: false } } },
+  server: { port: 3000, proxy: { '/api': { target, changeOrigin: false } } },
 });

@@ -6,13 +6,9 @@ describe('API configuration', () => {
     ['1', 'all'], ['true', 'all'], ['0', 'off'], ['false', 'off'],
     ['unknown', DEFAULT_MOCK_MODE], [undefined, DEFAULT_MOCK_MODE],
   ])('parses %s', (input, expected) => { expect(parseMockMode(input)).toBe(expected); });
-  it.each([
-    ['dev', '/hello/v1/dev/hello', '/counter/v1/dev/counter'],
-    ['', '/hello/v1/hello', '/counter/v1/counter'],
-  ])('builds tenant paths for %s', (slug, hello, counter) => {
-    expect(helloPath(slug)).toBe(hello);
-    expect(counterPath(slug)).toBe(counter);
-    expect(incrementPath(slug)).toBe(`${counter}/increment`);
+  it('uses the project default tenant routes', () => {
+    expect(helloPath()).toBe('/api/web/v1/hello');
+    expect(counterPath()).toBe('/api/web/v1/counter');
+    expect(incrementPath()).toBe('/api/web/v1/increment-counter');
   });
-  it('encodes the slug as one segment', () => { expect(helloPath('a/b')).toBe('/hello/v1/a%2Fb/hello'); });
 });

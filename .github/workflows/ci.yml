@@ -14,8 +14,27 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Replay reviewed answers and summarize locks
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL https://raw.githubusercontent.com/vibe-backend/sdk/v1.0.0-rc.5/scripts/vibe-install.sh -o vibe-install.sh
+          sh vibe-install.sh install --version v1.0.0-rc.5
+          export PATH="$HOME/.local/bin:$PATH"
+          cd backend
+          LLM_PROVIDER=replay vibe build --check
+          LLM_PROVIDER=replay vibe build
+          while IFS= read -r -d '' lock; do
+            {
+              printf '### %s\n\n```markdown\n' "$lock"
+              cat "$lock"
+              printf '\n```\n\n'
+            } >> "$GITHUB_STEP_SUMMARY"
+          done < <(git ls-files -z -o --ignored --exclude-standard -- '*.lock.md')
       - name: Build keyless test image
-        run: DOCKER_BUILDKIT=1 docker build --build-arg VIBE_FAKE=1 -t sample-hello-world:ci backend
+        run: docker build -t sample-hello-world:ci backend
       - name: Hello and counter API tests
         shell: bash
         run: |
@@ -31,7 +50,7 @@ jobs:
           trap cleanup EXIT
           ready=false
           for attempt in $(seq 1 60); do
-            status=$(curl -s -o /tmp/hello-body -w '%{http_code}' http://127.0.0.1:8080/hello/v1/dev/hello || true)
+            status=$(curl -s -o /tmp/hello-body -w '%{http_code}' http://127.0.0.1:8080/api/web/v1/hello || true)
             if [ "$status" = 200 ] && jq -e '. == {"message":"hello world"}' /tmp/hello-body >/dev/null; then
               ready=true
               break
@@ -47,9 +66,9 @@ jobs:
             jq -e "$filter" /tmp/api-body >/dev/null
           }
           B=http://127.0.0.1:8080
-          expect GET "$B/counter/v1/dev/counter" '. == {"count":0}'
-          expect POST "$B/counter/v1/dev/counter/increment" '. == {"count":1}'
-          expect GET "$B/counter/v1/dev/counter" '. == {"count":1}'
+          expect GET "$B/api/web/v1/counter" '. == {"value":0}'
+          expect POST "$B/api/web/v1/increment-counter" '. == {"value":1}'
+          expect GET "$B/api/web/v1/counter" '. == {"value":1}'
           # The SDK runtime fixes public writes at 50 per client IP per day.
           # The sequential POST used one; send the 50 concurrent POSTs from a second
           # client address by attaching hello to a second Docker network and calling its address there.
@@ -57,12 +76,12 @@ jobs:
           docker network connect counter-alt hello
           alt=$(docker inspect -f '{{(index .NetworkSettings.Networks "counter-alt").IPAddress}}' hello)
           test -n "$alt"
-          seq 50 | xargs -P 50 -I{} curl -sS -o - -w '\n%{http_code}\n' -X POST "http://$alt:8080/counter/v1/dev/counter/increment" > /tmp/concurrent
+          seq 50 | xargs -P 50 -I{} curl -sS -o - -w '\n%{http_code}\n' -X POST "http://$alt:8080/api/web/v1/increment-counter" > /tmp/concurrent
           awk '/^[0-9][0-9][0-9]$/ { n++; if ($0 != "200") bad++ } END { exit !(n == 50 && bad == 0) }' /tmp/concurrent
-          grep '^{' /tmp/concurrent | jq -s -e 'map(.count) | sort == [range(2;52)]' >/dev/null
-          printf '%s\n' 'concurrent: 50 x 200, counts 2..51 unique'
-          expect GET "$B/counter/v1/dev/counter" '. == {"count":51}'
-          expect GET "$B/hello/v1/dev/hello" '. == {"message":"hello world"}'
+          grep '^{' /tmp/concurrent | jq -s -e 'map(.value) | sort == [range(2;52)]' >/dev/null
+          printf '%s\n' 'concurrent: 50 x 200, values 2..51 unique'
+          expect GET "$B/api/web/v1/counter" '. == {"value":51}'
+          expect GET "$B/api/web/v1/hello" '. == {"message":"hello world"}'
       - name: Scan all image layers and configuration
         shell: bash
         run: |
@@ -145,7 +164,7 @@ jobs:
           for attempt in $(seq 1 60); do
             if curl -fsS http://127.0.0.1:8081/ > /tmp/frontend-index &&
                grep -q '<div id="root">' /tmp/frontend-index &&
-               curl -fsS http://127.0.0.1:8081/hello/v1/dev/hello > /tmp/frontend-hello &&
+               curl -fsS http://127.0.0.1:8081/api/web/v1/hello > /tmp/frontend-hello &&
                jq -e '. == {"message":"hello world"}' /tmp/frontend-hello >/dev/null; then
               test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8081/some/spa/route)" = 200
               ready=true
@@ -154,24 +173,24 @@ jobs:
             sleep 1
           done
           "$ready" || exit 1
-          status=$(curl -sS -o /tmp/frontend-counter -w '%{http_code}' http://127.0.0.1:8081/counter/v1/dev/counter)
+          status=$(curl -sS -o /tmp/frontend-counter -w '%{http_code}' http://127.0.0.1:8081/api/web/v1/counter)
           printf 'GET counter: %s %s\n' "$status" "$(cat /tmp/frontend-counter)"
           [ "$status" = 200 ]
-          jq -e '. == {"count":0}' /tmp/frontend-counter >/dev/null
-          status=$(curl -sS -o /tmp/frontend-counter -w '%{http_code}' -X POST http://127.0.0.1:8081/counter/v1/dev/counter/increment)
+          jq -e '. == {"value":0}' /tmp/frontend-counter >/dev/null
+          status=$(curl -sS -o /tmp/frontend-counter -w '%{http_code}' -X POST http://127.0.0.1:8081/api/web/v1/increment-counter)
           printf 'POST counter: %s %s\n' "$status" "$(cat /tmp/frontend-counter)"
           [ "$status" = 200 ]
-          jq -e '. == {"count":1}' /tmp/frontend-counter >/dev/null
+          jq -e '. == {"value":1}' /tmp/frontend-counter >/dev/null
           # nginx overwrites X-Forwarded-For with the real client address and the runtime trusts only nginx,
           # so fake XFF values must all count against the same real client IP (50 public writes per IP per day).
           # The POST above used 1.
           post_counter() {
             curl -sS -o /tmp/spoof-body -w '%{http_code}' -X POST \
-              -H "X-Forwarded-For: $1" http://127.0.0.1:8081/counter/v1/dev/counter/increment
+              -H "X-Forwarded-For: $1" http://127.0.0.1:8081/api/web/v1/increment-counter
           }
           for i in $(seq 1 49); do
             status=$(post_counter "203.0.113.$i")
-            if [ "$status" != 200 ] || ! jq -e --argjson n $((i + 1)) '.count == $n' /tmp/spoof-body >/dev/null; then
+            if [ "$status" != 200 ] || ! jq -e --argjson n $((i + 1)) '.value == $n' /tmp/spoof-body >/dev/null; then
               printf 'spoof: i=%s status=%s body=%s\n' "$i" "$status" "$(cat /tmp/spoof-body)"
               exit 1
             fi
@@ -186,11 +205,11 @@ jobs:
           docker network connect counter-alt "$fe"
           alt=$(docker inspect -f '{{(index .NetworkSettings.Networks "counter-alt").IPAddress}}' "$fe")
           test -n "$alt"
-          status=$(curl -sS -o /tmp/spoof-body -w '%{http_code}' -X POST "http://$alt:8080/counter/v1/dev/counter/increment")
+          status=$(curl -sS -o /tmp/spoof-body -w '%{http_code}' -X POST "http://$alt:8080/api/web/v1/increment-counter")
           [ "$status" = 200 ]
-          jq -e '.count == 51' /tmp/spoof-body >/dev/null
-          printf '%s\n' 'control: a different real client via nginx -> 200 {"count":51}'
-          status=$(curl -sS -o /tmp/frontend-counter -w '%{http_code}' http://127.0.0.1:8081/counter/v1/dev/counter)
+          jq -e '.value == 51' /tmp/spoof-body >/dev/null
+          printf '%s\n' 'control: a different real client via nginx -> 200 {"value":51}'
+          status=$(curl -sS -o /tmp/frontend-counter -w '%{http_code}' http://127.0.0.1:8081/api/web/v1/counter)
           [ "$status" = 200 ]
-          jq -e '. == {"count":51}' /tmp/frontend-counter >/dev/null
+          jq -e '. == {"value":51}' /tmp/frontend-counter >/dev/null
           exit 0
