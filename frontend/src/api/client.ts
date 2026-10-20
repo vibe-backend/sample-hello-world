@@ -1,4 +1,4 @@
-import { counterPath, delayMs, helloPath, incrementPath, mode, slug, type MockMode } from './config';
+import { counterPath, delayMs, helloPath, incrementPath, mode, type MockMode } from './config';
 import { createMockBackend } from './mock';
 export interface Api {
   getHello(signal?: AbortSignal): Promise<{ message: string }>;
@@ -11,7 +11,7 @@ export class ApiError extends Error {
     this.name = 'ApiError';
   }
 }
-export function createApi(options: { mode: MockMode; slug: string; fetchImpl?: typeof fetch; mock?: Api }): Api {
+export function createApi(options: { mode: MockMode; fetchImpl?: typeof fetch; mock?: Api }): Api {
   const fetchImpl = options.fetchImpl ?? globalThis.fetch;
   const mock = options.mode === 'off' ? undefined : options.mock ?? createMockBackend({ delayMs });
   async function request(path: string, method: string, signal?: AbortSignal): Promise<unknown> {
@@ -31,18 +31,18 @@ export function createApi(options: { mode: MockMode; slug: string; fetchImpl?: t
   }
   async function count(path: string, method: string, signal?: AbortSignal) {
     const data = await request(path, method, signal);
-    if (typeof data !== 'object' || data === null || !('count' in data) || typeof data.count !== 'number' || !Number.isSafeInteger(data.count) || data.count < 0) throw new ApiError('invalid');
-    return { count: data.count };
+    if (typeof data !== 'object' || data === null || !('value' in data) || typeof data.value !== 'number' || !Number.isSafeInteger(data.value) || data.value < 0) throw new ApiError('invalid');
+    return { count: data.value };
   }
   return {
     async getHello(signal) {
       if (options.mode === 'all' && mock) return mock.getHello(signal);
-      const data = await request(helloPath(options.slug), 'GET', signal);
+      const data = await request(helloPath(), 'GET', signal);
       if (typeof data !== 'object' || data === null || !('message' in data) || typeof data.message !== 'string') throw new ApiError('invalid');
       return { message: data.message };
     },
-    getCount: (signal) => mock ? mock.getCount(signal) : count(counterPath(options.slug), 'GET', signal),
-    increment: (signal) => mock ? mock.increment(signal) : count(incrementPath(options.slug), 'POST', signal),
+    getCount: (signal) => mock ? mock.getCount(signal) : count(counterPath(), 'GET', signal),
+    increment: (signal) => mock ? mock.increment(signal) : count(incrementPath(), 'POST', signal),
   };
 }
-export const api = createApi({ mode, slug });
+export const api = createApi({ mode });

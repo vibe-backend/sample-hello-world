@@ -1,10 +1,9 @@
 services:
   runtime:
-    # For a real LLM build, build the image as the README describes and set the image.
     build:
       context: ./backend
       args:
-        VIBE_FAKE: "1"
+        VIBE_LLM: replay
     image: sample-hello-world:test
     environment:
       # Trust only the nginx container; never a broad range (host requests to the published runtime port arrive from the network gateway, which stays untrusted).
@@ -18,7 +17,6 @@ services:
       context: ./frontend
       args:
         PUBLIC_API_MOCK: ${PUBLIC_API_MOCK:-off}
-        PUBLIC_API_SLUG: ${PUBLIC_API_SLUG:-dev}
     depends_on:
       - runtime
     ports:

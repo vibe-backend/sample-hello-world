@@ -2,7 +2,7 @@
 # Dev/demo image, not for production: manifest is development-signed.
 # Production signing: https://github.com/vibe-backend/sdk/issues/309
 FROM debian:trixie-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f AS download
-ARG VIBE_VERSION=v1.0.0-rc.4
+ARG VIBE_VERSION=v1.0.0-rc.5
 ARG TARGETARCH
 RUN set -eu; \
     apt-get update; apt-get install -y --no-install-recommends ca-certificates curl; \
@@ -20,8 +20,8 @@ COPY --from=download /dist/ /
 
 FROM debian:trixie-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f AS verify
 ARG TARGETARCH
-# Pinned digest of the v1.0.0-rc.4 SHA256SUMS; update it together with VIBE_VERSION.
-ARG VIBE_SHA256SUMS_SHA256=198d69bf85fa1b858ef6bf12cc9fbe2bbff7ee4f52b25e0166404041ded5318c
+# Pinned digest of the v1.0.0-rc.5 SHA256SUMS; update it together with VIBE_VERSION.
+ARG VIBE_SHA256SUMS_SHA256=9bd16e72473e5d200675151e01e851c3bfd929cd7b29c27a5b7d736d03c913ae
 COPY --from=assets / /dist/
 RUN set -eu; \
     case "$TARGETARCH" in amd64) T=x86_64-unknown-linux-gnu ;; arm64) T=aarch64-unknown-linux-gnu ;; *) exit 1 ;; esac; \
@@ -45,41 +45,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 COPY --from=verify /opt/vibe/bin/vibe /usr/local/bin/vibe
 WORKDIR /src
 COPY api/ ./api/
-COPY providers/ ./providers/
 COPY models/ ./models/
+COPY fixtures/ ./fixtures/
 COPY slugs.example.json ./
 # vibe build secret-scans the project and needs its .gitignore.
 COPY .gitignore ./
-ARG VIBE_FAKE=
-ARG LLM_PROVIDER=
-ARG LLM_MODEL=
-ARG LLM_BASE_URL=
-ARG LLM_API_STYLE=
-ARG LLM_ALLOW_PRIVATE_HOST=
-RUN --mount=type=secret,id=llm_api_key,required=false \
-    --mount=type=secret,id=llm_base_url,required=false \
-    set -eu; \
-    case "$VIBE_FAKE" in ''|1) ;; *) printf '%s\n' 'VIBE_FAKE must be empty or 1' >&2; exit 1 ;; esac; \
-    if [ "$VIBE_FAKE" = 1 ]; then \
-      LLM_PROVIDER=fake vibe build -o /out/manifest.json; \
-    else \
-      [ -f /run/secrets/llm_api_key ] || { printf '%s\n' 'Missing required llm_api_key BuildKit secret' >&2; exit 1; }; \
-      export LLM_API_KEY_FILE=/run/secrets/llm_api_key; \
-      if [ -f /run/secrets/llm_base_url ]; then LLM_BASE_URL=$(cat /run/secrets/llm_base_url); fi; \
-      [ -z "$LLM_PROVIDER" ] || export LLM_PROVIDER; \
-      [ -z "$LLM_MODEL" ] || export LLM_MODEL; \
-      [ -z "$LLM_BASE_URL" ] || export LLM_BASE_URL; \
-      [ -z "$LLM_API_STYLE" ] || export LLM_API_STYLE; \
-      [ -z "$LLM_ALLOW_PRIVATE_HOST" ] || export LLM_ALLOW_PRIVATE_HOST; \
-      vibe build -o /out/manifest.json; \
-    fi; \
+ARG VIBE_LLM=replay
+RUN set -eu; \
+    case "$VIBE_LLM" in \
+      replay) LLM_PROVIDER=replay vibe build -o /out/manifest.json ;; \
+      fake) LLM_PROVIDER=fake vibe build -o /out/manifest.json ;; \
+      *) printf '%s\n' 'VIBE_LLM must be replay or fake' >&2; exit 1 ;; \
+    esac; \
     mkdir -p /out/.vibe; cp .vibe/signing.pub /out/.vibe/signing.pub; \
     test -z "$(find /out -name signing.key -print)"; \
     test "$(find /out -type f | wc -l)" -eq 2
 
 FROM debian:trixie-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f
 LABEL org.opencontainers.image.source="https://github.com/vibe-backend/sample-hello-world" \
-      org.opencontainers.image.description="Dev/demo image, not for production; development-signed manifest (sdk#309)"
+      org.opencontainers.image.description="Dev/demo test build, not for production; development-signed manifest (sdk#309)"
 RUN useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin vibe
 COPY --from=verify /opt/vibe/bin/vibe-runtime /usr/local/bin/vibe-runtime
 COPY --from=build /out/manifest.json /app/manifest.json
@@ -87,8 +71,7 @@ COPY --from=build /out/.vibe/signing.pub /app/.vibe/signing.pub
 # vibe-runtime --artifact /app reads /app/slugs.example.json with the in-memory database (dev slug may write).
 COPY slugs.example.json /app/slugs.example.json
 ENV VIBE_ENV=development VIBE_DB=memory
-ARG VIBE_FAKE
-ENV VIBE_ALLOW_TEST_BUILD=${VIBE_FAKE:+1}
+ENV VIBE_ALLOW_TEST_BUILD=1
 USER 10001
 EXPOSE 8080
-CMD ["/bin/sh","-c","exec vibe-runtime --artifact /app --addr 0.0.0.0:8080 ${VIBE_ALLOW_TEST_BUILD:+--allow-test-build}"]
+CMD ["/bin/sh","-c","exec vibe-runtime --artifact /app --addr 0.0.0.0:8080 --allow-test-build"]

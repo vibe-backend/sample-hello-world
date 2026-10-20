@@ -1,9 +1,4 @@
-# counter
-
-## Providers
-
-- allowlist: [main]
-- default: main
+# web
 
 ## Pipelines
 

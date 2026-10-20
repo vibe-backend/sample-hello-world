@@ -1,6 +1,5 @@
 .env
 .env.*
-!.env.example
 # Locks are build output.
 *.lock.md
 # Signing keys, public keys, build record, cache.
