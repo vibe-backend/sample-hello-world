@@ -59,6 +59,33 @@ The Dockerfile pins `VIBE_VERSION=v1.0.0-rc.5`, Debian base digests, and the v1.
 `9bd16e72473e5d200675151e01e851c3bfd929cd7b29c27a5b7d736d03c913ae`.
 Update version and digest together. Checksums and archive entry names are verified. Release assets must be published before building. The runtime image contains the manifest, public signing key, slug settings and runtime, runs as UID 10001, and sets `VIBE_ENV=development`, `VIBE_DB=memory`, and `VIBE_ALLOW_TEST_BUILD=1` with `--allow-test-build`. It contains no signing private key or AI settings.
 
+## Signed releases
+
+No release has been made yet; the first signed release happens later. A maintainer pushes a `v*` tag, then a reviewer approves the `release` environment in GitHub Actions. The SDK reusable workflow builds the manifest from the `.md` sources with the configured AI model; release builds never use replay fixtures. It signs without stored keys using GitHub OIDC and Sigstore, attests the manifest, and publishes `manifest.json` plus its signature bundle on the GitHub Release. Pull requests never sign anything.
+
+Maintainers set up repository variables `VIBE_LLM_BASE_URL` and `VIBE_LLM_MODEL`, the `release` environment secret `VIBE_LLM_API_KEY`, and environment reviewers in GitHub settings, outside this repo. Use a public AI endpoint; private hosts are refused. The variables must be repository variables because the caller cannot read environment-scoped variables. Keep the SDK workflow tag equal to the runtime version.
+
+Deployers download the manifest and bundle into `dist/`, check the manifest digest against the workflow output, and use the SDK `v1.0.0-rc.5` runtime with `cosign` on `PATH`:
+
+```sh
+VIBE_ENV=development VIBE_RELEASE_VERSION=<version without v> vibe-runtime verify --artifact dist \
+  --expect-identity 'https://github.com/vibe-backend/sample-hello-world/.github/workflows/release.yml@refs/tags/v*' \
+  --expect-issuer https://token.actions.githubusercontent.com \
+  --expect-repository-id 1423874448
+```
+
+The identity is this repository's release workflow at a `v*` tag; the SDK signer half is built into the runtime and needs no flag. The issuer is GitHub Actions. The repository id is this repository's numeric id.
+
+From `dist/`, also check the attestation against the release tag and commit, then deploy those same files without rebuilding:
+
+```sh
+gh attestation verify manifest.json --repo vibe-backend/sample-hello-world \
+  --signer-workflow vibe-backend/sdk/.github/workflows/vibe-project-release.yml \
+  --source-ref refs/tags/v<version> --source-digest <commit> --deny-self-hosted-runners
+```
+
+This sample stores data in memory, so even a signed release is a demo and must not run with `VIBE_ENV=production`.
+
 For the frontend:
 
 ```sh
@@ -142,6 +169,33 @@ Docker 建置參數預設為 `VIBE_LLM=replay`；`--build-arg VIBE_LLM=fake` 可
 Dockerfile 固定 `VIBE_VERSION=v1.0.0-rc.5`、Debian 基底摘要及 v1.0.0-rc.5 的 `SHA256SUMS` 摘要（`VIBE_SHA256SUMS_SHA256`）：
 `9bd16e72473e5d200675151e01e851c3bfd929cd7b29c27a5b7d736d03c913ae`。
 升級時版本與摘要須一起更新。建置會驗證校驗碼及壓縮檔項目名稱；發行資產發布後才能建置。runtime 映像檔包含 manifest、簽署公鑰、slug 設定及 runtime，以 UID 10001 執行，設定 `VIBE_ENV=development`、`VIBE_DB=memory`、`VIBE_ALLOW_TEST_BUILD=1` 並傳入 `--allow-test-build`。不含簽署私鑰或 AI 設定。
+
+### 簽署發行版本
+
+目前尚未製作任何發行版本；首次簽署發行將於之後進行。維護者推送 `v*` 標籤後，由審閱者在 GitHub Actions 核准 `release` 環境。SDK 的可重用工作流程使用已設定的 AI 模型，從 `.md` 原始檔建置 manifest；發行建置絕不使用重播錄製檔。工作流程透過 GitHub OIDC 與 Sigstore 簽署，不儲存簽署金鑰，並建立證明，將 `manifest.json` 及其簽署 bundle 發布至 GitHub Release。Pull request 絕不簽署任何檔案。
+
+維護者須在 GitHub 設定中（而非此儲存庫內）設定儲存庫變數 `VIBE_LLM_BASE_URL`、`VIBE_LLM_MODEL`、`release` 環境的秘密 `VIBE_LLM_API_KEY` 及環境審閱者。請使用公開 AI 端點；私人主機會被拒絕。變數必須屬於儲存庫，因為呼叫端無法讀取環境範圍的變數。SDK 工作流程標籤須與 runtime 版本一致。
+
+部署者將 manifest 及 bundle 下載至 `dist/`，比對 manifest 摘要與工作流程輸出，再使用 SDK `v1.0.0-rc.5` runtime 驗證；`cosign` 必須位於 `PATH`：
+
+```sh
+VIBE_ENV=development VIBE_RELEASE_VERSION=<version without v> vibe-runtime verify --artifact dist \
+  --expect-identity 'https://github.com/vibe-backend/sample-hello-world/.github/workflows/release.yml@refs/tags/v*' \
+  --expect-issuer https://token.actions.githubusercontent.com \
+  --expect-repository-id 1423874448
+```
+
+identity 是此儲存庫在 `v*` 標籤下的發行工作流程；SDK 簽署者的驗證條件已內建於 runtime，不需額外旗標。issuer 是 GitHub Actions。repository id 是此儲存庫的數字識別碼。
+
+在 `dist/` 中亦須針對發行標籤及提交檢查證明，然後直接部署同一批檔案，不重新建置：
+
+```sh
+gh attestation verify manifest.json --repo vibe-backend/sample-hello-world \
+  --signer-workflow vibe-backend/sdk/.github/workflows/vibe-project-release.yml \
+  --source-ref refs/tags/v<version> --source-digest <commit> --deny-self-hosted-runners
+```
+
+本範例的資料只存於記憶體，因此即使是已簽署的發行版本仍屬示範，不可使用 `VIBE_ENV=production` 執行。
 
 啟動前端：
 
