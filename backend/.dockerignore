@@ -1,0 +1,10 @@
+# The image replays fixtures from sources, so host build output must not leak in.
+**/*.lock.md
+.vibe/
+manifest.json
+/out/
+.env
+.env.*
+*.key
+*.log
+image.tar

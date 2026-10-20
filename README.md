@@ -8,7 +8,7 @@ This sample has a bilingual React page and an API written in ordinary sentences.
 
 Anyone can use these APIs. The project uses default slug `dev`; URLs need no slug. Public writes are limited to 50 per client IP per day and 1000 per tenant per day; further writes return 429. Data lives in memory and is lost when the runtime restarts.
 
-`backend/` holds `api/`, `models/`, `fixtures/llm/`, `slugs.example.json`, `Dockerfile`, and `.gitignore`. `frontend/` holds the React page. The recording directory will be supplied separately; replay builds need its reviewed fixture files.
+`backend/` holds `api/`, `models/`, `fixtures/llm/`, `slugs.example.json`, `Dockerfile`, and `.gitignore`. `frontend/` holds the React page.
 
 Install SDK `v1.0.0-rc.5` with `curl`, `tar`, and an authenticated GitHub CLI (`gh auth login`). The installer verifies checksums and GitHub attestations. Add `--runtime` to install `vibe-runtime` too.
 
@@ -92,7 +92,7 @@ CI checks replay and puts generated locks in the job summary, tests 50 concurren
 
 任何人皆可使用。專案預設 slug 為 `dev`，網址不需包含 slug。公開寫入限制為每個用戶端 IP 每日 50 次、每租戶每日 1000 次；超過回傳 429。資料只存於記憶體，runtime 重啟即遺失。
 
-`backend/` 包含 `api/`、`models/`、`fixtures/llm/`、`slugs.example.json`、`Dockerfile` 及 `.gitignore`。`frontend/` 包含 React 頁面。錄製目錄將另行提供；重播建置需要其中已審閱的檔案。
+`backend/` 包含 `api/`、`models/`、`fixtures/llm/`、`slugs.example.json`、`Dockerfile` 及 `.gitignore`。`frontend/` 包含 React 頁面。
 
 安裝 SDK `v1.0.0-rc.5`，需要 `curl`、`tar` 及已登入的 GitHub CLI（`gh auth login`）。安裝程式驗證校驗碼及 GitHub 證明；加上 `--runtime` 可同時安裝 `vibe-runtime`。
 
