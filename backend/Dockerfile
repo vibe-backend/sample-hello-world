@@ -2,7 +2,7 @@
 # Dev/demo image, not for production: manifest is development-signed.
 # Production signing: https://github.com/vibe-backend/sdk/issues/309
 FROM debian:trixie-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f AS download
-ARG VIBE_VERSION=v1.0.0-rc.5
+ARG VIBE_VERSION=v1.0.0-rc.6
 ARG TARGETARCH
 RUN set -eu; \
     apt-get update; apt-get install -y --no-install-recommends ca-certificates curl; \
@@ -20,8 +20,8 @@ COPY --from=download /dist/ /
 
 FROM debian:trixie-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f AS verify
 ARG TARGETARCH
-# Pinned digest of the v1.0.0-rc.5 SHA256SUMS; update it together with VIBE_VERSION.
-ARG VIBE_SHA256SUMS_SHA256=9bd16e72473e5d200675151e01e851c3bfd929cd7b29c27a5b7d736d03c913ae
+# Pinned digest of the v1.0.0-rc.6 SHA256SUMS; update it together with VIBE_VERSION.
+ARG VIBE_SHA256SUMS_SHA256=e40ffdb6aab0fa2226df1711c748baeed73d9ef145b67ff1edd4eeeb51aef09e
 COPY --from=assets / /dist/
 RUN set -eu; \
     case "$TARGETARCH" in amd64) T=x86_64-unknown-linux-gnu ;; arm64) T=aarch64-unknown-linux-gnu ;; *) exit 1 ;; esac; \
