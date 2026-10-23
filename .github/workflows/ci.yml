@@ -20,8 +20,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl -fsSL https://raw.githubusercontent.com/vibe-backend/sdk/v1.0.0-rc.5/scripts/vibe-install.sh -o vibe-install.sh
-          sh vibe-install.sh install --version v1.0.0-rc.5
+          curl -fsSL https://raw.githubusercontent.com/vibe-backend/sdk/v1.0.0-rc.6/scripts/vibe-install.sh -o vibe-install.sh
+          sh vibe-install.sh install --version v1.0.0-rc.6
           export PATH="$HOME/.local/bin:$PATH"
           cd backend
           LLM_PROVIDER=fake vibe build --check
