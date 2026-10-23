@@ -1,4 +1,6 @@
 # backend/.gitignore holds the vibe project rules (vibe build reads it).
+# Optional local LLM recordings (VIBE_LLM_RECORD=fixtures/llm). Do not commit.
+backend/fixtures/llm/
 node_modules/
 frontend/dist/
 *.tsbuildinfo

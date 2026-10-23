@@ -1,4 +1,5 @@
-# The image replays fixtures from sources, so host build output must not leak in.
+# Host build output and optional local LLM recordings must not enter the image.
+fixtures/
 **/*.lock.md
 .vibe/
 manifest.json

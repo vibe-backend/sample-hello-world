@@ -3,7 +3,7 @@ services:
     build:
       context: ./backend
       args:
-        VIBE_LLM: replay
+        VIBE_LLM: fake
     image: sample-hello-world:test
     environment:
       # Trust only the nginx container; never a broad range (host requests to the published runtime port arrive from the network gateway, which stays untrusted).
