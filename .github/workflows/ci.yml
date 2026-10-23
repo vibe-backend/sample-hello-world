@@ -14,7 +14,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Replay reviewed answers and summarize locks
+      - name: Build with fake provider and summarize locks
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -24,8 +24,8 @@ jobs:
           sh vibe-install.sh install --version v1.0.0-rc.5
           export PATH="$HOME/.local/bin:$PATH"
           cd backend
-          LLM_PROVIDER=replay vibe build --check
-          LLM_PROVIDER=replay vibe build
+          LLM_PROVIDER=fake vibe build --check
+          LLM_PROVIDER=fake vibe build
           while IFS= read -r -d '' lock; do
             {
               printf '### %s\n\n```markdown\n' "$lock"

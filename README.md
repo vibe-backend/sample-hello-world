@@ -8,7 +8,7 @@ This sample has a bilingual React page and an API written in ordinary sentences.
 
 Anyone can use these APIs. The project uses default slug `dev`; URLs need no slug. Public writes are limited to 50 per client IP per day and 1000 per tenant per day; further writes return 429. Data lives in memory and is lost when the runtime restarts.
 
-`backend/` holds `api/`, `models/`, `fixtures/llm/`, `slugs.example.json`, `Dockerfile`, and `.gitignore`. `frontend/` holds the React page.
+`backend/` holds `api/`, `models/`, `slugs.example.json`, `Dockerfile`, and `.gitignore`. `frontend/` holds the React page.
 
 Install SDK `v1.0.0-rc.5` with `curl`, `tar`, and an authenticated GitHub CLI (`gh auth login`). The installer verifies checksums and GitHub attestations. Add `--runtime` to install `vibe-runtime` too.
 
@@ -24,22 +24,22 @@ vibe run
 
 Run `vibe` once to set up AI settings. It stores them in your user config, `~/.config/vibe/llm.env`, with the key in a separate private file, outside the project. Never commit AI credentials. `vibe run` serves on `127.0.0.1:8080` by default.
 
-After editing a `.md` file, record fresh answers locally using your configured model:
+CI and Docker build with the fake provider, so no AI key is needed:
+
+```sh
+cd backend
+LLM_PROVIDER=fake vibe build --check
+LLM_PROVIDER=fake vibe build
+vibe run --allow-test-build
+```
+
+Recording model answers locally is optional and must not be committed. From `backend/`:
 
 ```sh
 VIBE_LLM_RECORD=fixtures/llm vibe build
 ```
 
-Review the new fixture files before committing. Start without generated locks, or use `--check`, to record every call. Never commit locks (`*.lock.md`), `.vibe/` (keys and cache), or `manifest.json`.
-
-CI and Docker replay the reviewed recorded answers in `backend/fixtures/llm/`, so no AI key is needed:
-
-```sh
-cd backend
-LLM_PROVIDER=replay vibe build --check
-LLM_PROVIDER=replay vibe build
-vibe run --allow-test-build
-```
+That writes `fixtures/llm/`. Git ignores that directory. Do not commit those files. Never commit locks (`*.lock.md`), `.vibe/` (keys and cache), or `manifest.json`.
 
 From the repository root:
 
@@ -51,7 +51,7 @@ curl http://127.0.0.1:8080/api/web/v1/counter
 curl -X POST http://127.0.0.1:8080/api/web/v1/increment-counter
 ```
 
-`VIBE_LLM=replay` is the default Docker build argument; `--build-arg VIBE_LLM=fake` selects the fake provider for supported tests. Real recordings are made locally, never in the image.
+Docker builds with the fake provider (`VIBE_LLM=fake`). The image has no AI key and no recorded answers. Local recordings, if you make them, stay on your machine and are not copied into the image.
 
 This image is a dev/demo test build and must **NOT** run with `VIBE_ENV=production`: production refuses the in-memory store. For real use, add `backend/providers/main.md` with PostgreSQL. The manifest is development-signed; production signing is tracked in [sdk#309](https://github.com/vibe-backend/sdk/issues/309).
 
@@ -61,7 +61,7 @@ Update version and digest together. Checksums and archive entry names are verifi
 
 ## Signed releases
 
-No release has been made yet; the first signed release happens later. A maintainer pushes a `v*` tag, then a reviewer approves the `release` environment in GitHub Actions. The SDK reusable workflow builds the manifest from the `.md` sources with the configured AI model; release builds never use replay fixtures. It signs without stored keys using GitHub OIDC and Sigstore, attests the manifest, and publishes `manifest.json` plus its signature bundle on the GitHub Release. Pull requests never sign anything.
+No release has been made yet; the first signed release happens later. A maintainer pushes a `v*` tag, then a reviewer approves the `release` environment in GitHub Actions. The SDK reusable workflow builds the manifest from the `.md` sources with the configured AI model. It signs without stored keys using GitHub OIDC and Sigstore, attests the manifest, and publishes `manifest.json` plus its signature bundle on the GitHub Release. Pull requests never sign anything.
 
 Maintainers set up repository variables `VIBE_LLM_BASE_URL` and `VIBE_LLM_MODEL`, the `release` environment secret `VIBE_LLM_API_KEY`, and environment reviewers in GitHub settings, outside this repo. Use a public AI endpoint; private hosts are refused. The variables must be repository variables because the caller cannot read environment-scoped variables. Keep the SDK workflow tag equal to the runtime version.
 
@@ -105,9 +105,9 @@ Open http://localhost:3000. The development server proxies `/api` to `127.0.0.1:
 
 Use `PUBLIC_API_MOCK=all pnpm dev` without a backend. Mock data is labelled, lives in memory, and resets on page reload. `PUBLIC_API_MOCK_DELAY_MS` defaults to 300. Run `pnpm run lint`, `pnpm run typecheck`, `pnpm test`, and `pnpm run build` from `frontend/`.
 
-Run `docker compose up --build` from the repository root and open http://127.0.0.1:8081/. It uses replay and real APIs by default; `PUBLIC_API_MOCK=counter docker compose up --build` mocks the counter. nginx overwrites `X-Forwarded-For` with the real client address. The runtime trusts only nginx at `10.231.0.10` via `VIBE_TRUSTED_PROXIES`. If subnet `10.231.0.0/24` conflicts with your network, change the subnet, nginx address and trusted proxy together.
+Run `docker compose up --build` from the repository root and open http://127.0.0.1:8081/. It builds the API with the fake provider and uses real APIs by default; `PUBLIC_API_MOCK=counter docker compose up --build` mocks the counter. nginx overwrites `X-Forwarded-For` with the real client address. The runtime trusts only nginx at `10.231.0.10` via `VIBE_TRUSTED_PROXIES`. If subnet `10.231.0.0/24` conflicts with your network, change the subnet, nginx address and trusted proxy together.
 
-CI checks replay and puts generated locks in the job summary, tests 50 concurrent writes with unique values 2..51 from a second client, and scans image layers for keys. Compose tests keep SPA routes working and verify that 49 spoofed forwarding headers still consume one client's quota, the next write returns 429 `RATE_LIMITED`, and another real client can write value 51. Pull requests from forks cannot get the id-token permission, so the signed-release self-test may fail to start on fork PRs.
+CI builds with the fake provider and puts generated locks in the job summary, tests 50 concurrent writes with unique values 2..51 from a second client, and scans image layers for keys. Compose tests keep SPA routes working and verify that 49 spoofed forwarding headers still consume one client's quota, the next write returns 429 `RATE_LIMITED`, and another real client can write value 51. Pull requests from forks cannot get the id-token permission, so the signed-release self-test may fail to start on fork PRs.
 
 ## 繁體中文
 
@@ -119,7 +119,7 @@ CI checks replay and puts generated locks in the job summary, tests 50 concurren
 
 任何人皆可使用。專案預設 slug 為 `dev`，網址不需包含 slug。公開寫入限制為每個用戶端 IP 每日 50 次、每租戶每日 1000 次；超過回傳 429。資料只存於記憶體，runtime 重啟即遺失。
 
-`backend/` 包含 `api/`、`models/`、`fixtures/llm/`、`slugs.example.json`、`Dockerfile` 及 `.gitignore`。`frontend/` 包含 React 頁面。
+`backend/` 包含 `api/`、`models/`、`slugs.example.json`、`Dockerfile` 及 `.gitignore`。`frontend/` 包含 React 頁面。
 
 安裝 SDK `v1.0.0-rc.5`，需要 `curl`、`tar` 及已登入的 GitHub CLI（`gh auth login`）。安裝程式驗證校驗碼及 GitHub 證明；加上 `--runtime` 可同時安裝 `vibe-runtime`。
 
@@ -135,22 +135,22 @@ vibe run
 
 首次執行 `vibe` 設定 AI。設定儲存在專案以外的使用者設定檔 `~/.config/vibe/llm.env`，金鑰另存於私人檔案。切勿提交 AI 憑證。`vibe run` 預設監聽 `127.0.0.1:8080`。
 
-修改 `.md` 後，使用本機已設定的模型重新錄製：
+CI 與 Docker 使用 fake provider 建置，不需 AI 金鑰：
+
+```sh
+cd backend
+LLM_PROVIDER=fake vibe build --check
+LLM_PROVIDER=fake vibe build
+vibe run --allow-test-build
+```
+
+本機錄製模型答案是可選的，且不可提交。在 `backend/` 執行：
 
 ```sh
 VIBE_LLM_RECORD=fixtures/llm vibe build
 ```
 
-提交前請審閱新的錄製檔。先移除產生的鎖定檔，或加上 `--check`，以錄製所有呼叫。切勿提交鎖定檔（`*.lock.md`）、`.vibe/`（金鑰及快取）或 `manifest.json`。
-
-CI 與 Docker 重播 `backend/fixtures/llm/` 中已審閱的答案，不需 AI 金鑰：
-
-```sh
-cd backend
-LLM_PROVIDER=replay vibe build --check
-LLM_PROVIDER=replay vibe build
-vibe run --allow-test-build
-```
+檔案會寫入 `fixtures/llm/`，git 會忽略該目錄。切勿提交這些錄製檔、鎖定檔（`*.lock.md`）、`.vibe/`（金鑰及快取）或 `manifest.json`。
 
 從儲存庫根目錄執行：
 
@@ -162,7 +162,7 @@ curl http://127.0.0.1:8080/api/web/v1/counter
 curl -X POST http://127.0.0.1:8080/api/web/v1/increment-counter
 ```
 
-Docker 建置參數預設為 `VIBE_LLM=replay`；`--build-arg VIBE_LLM=fake` 可在支援的測試選用 fake。真實答案只在本機錄製，不在映像檔內錄製。
+Docker 以 fake provider 建置（`VIBE_LLM=fake`）。映像檔不含 AI 金鑰或錄製答案。若在本機錄製，檔案只留在自己的機器上，不會複製進映像檔。
 
 此映像檔是開發／示範測試建置，**不可**使用 `VIBE_ENV=production`：正式環境會拒絕記憶體儲存。實際使用請新增搭配 PostgreSQL 的 `backend/providers/main.md`。manifest 使用開發金鑰簽署，正式簽署進度見 [sdk#309](https://github.com/vibe-backend/sdk/issues/309)。
 
@@ -172,7 +172,7 @@ Dockerfile 固定 `VIBE_VERSION=v1.0.0-rc.5`、Debian 基底摘要及 v1.0.0-rc.
 
 ### 簽署發行版本
 
-目前尚未製作任何發行版本；首次簽署發行將於之後進行。維護者推送 `v*` 標籤後，由審閱者在 GitHub Actions 核准 `release` 環境。SDK 的可重用工作流程使用已設定的 AI 模型，從 `.md` 原始檔建置 manifest；發行建置絕不使用重播錄製檔。工作流程透過 GitHub OIDC 與 Sigstore 簽署，不儲存簽署金鑰，並建立證明，將 `manifest.json` 及其簽署 bundle 發布至 GitHub Release。Pull request 絕不簽署任何檔案。
+目前尚未製作任何發行版本；首次簽署發行將於之後進行。維護者推送 `v*` 標籤後，由審閱者在 GitHub Actions 核准 `release` 環境。SDK 的可重用工作流程使用已設定的 AI 模型，從 `.md` 原始檔建置 manifest。工作流程透過 GitHub OIDC 與 Sigstore 簽署，不儲存簽署金鑰，並建立證明，將 `manifest.json` 及其簽署 bundle 發布至 GitHub Release。Pull request 絕不簽署任何檔案。
 
 維護者須在 GitHub 設定中（而非此儲存庫內）設定儲存庫變數 `VIBE_LLM_BASE_URL`、`VIBE_LLM_MODEL`、`release` 環境的秘密 `VIBE_LLM_API_KEY` 及環境審閱者。請使用公開 AI 端點；私人主機會被拒絕。變數必須屬於儲存庫，因為呼叫端無法讀取環境範圍的變數。SDK 工作流程標籤須與 runtime 版本一致。
 
@@ -216,6 +216,6 @@ pnpm dev
 
 無後端時使用 `PUBLIC_API_MOCK=all pnpm dev`。示範資料有標籤，只存在記憶體，重新載入即重設。`PUBLIC_API_MOCK_DELAY_MS` 預設為 300。在 `frontend/` 執行 `pnpm run lint`、`pnpm run typecheck`、`pnpm test` 及 `pnpm run build`。
 
-從根目錄執行 `docker compose up --build`，開啟 http://127.0.0.1:8081/。預設重播並使用真實 API；`PUBLIC_API_MOCK=counter docker compose up --build` 可模擬計數器。nginx 以真實用戶端位址覆寫 `X-Forwarded-For`，runtime 透過 `VIBE_TRUSTED_PROXIES` 僅信任 `10.231.0.10` 的 nginx。若 `10.231.0.0/24` 與本機網路衝突，請一起修改子網路、nginx 位址及信任代理設定。
+從根目錄執行 `docker compose up --build`，開啟 http://127.0.0.1:8081/。預設以 fake provider 建置並使用真實 API；`PUBLIC_API_MOCK=counter docker compose up --build` 可模擬計數器。nginx 以真實用戶端位址覆寫 `X-Forwarded-For`，runtime 透過 `VIBE_TRUSTED_PROXIES` 僅信任 `10.231.0.10` 的 nginx。若 `10.231.0.0/24` 與本機網路衝突，請一起修改子網路、nginx 位址及信任代理設定。
 
-CI 檢查重播並將鎖定檔寫入工作摘要，從第二個用戶端驗證 50 次並行寫入的值恰為 2..51，並掃描映像檔金鑰。Compose 測試保留 SPA 路由檢查，確認 49 個偽造轉送標頭仍計入同一用戶端配額，下一次寫入回傳 429 `RATE_LIMITED`，另一個真實用戶端仍可寫入值 51。來自 fork 的 pull request 無法取得 id-token 權限，因此簽署發行版本的自我測試可能無法啟動。
+CI 以 fake provider 建置並將鎖定檔寫入工作摘要，從第二個用戶端驗證 50 次並行寫入的值恰為 2..51，並掃描映像檔金鑰。Compose 測試保留 SPA 路由檢查，確認 49 個偽造轉送標頭仍計入同一用戶端配額，下一次寫入回傳 429 `RATE_LIMITED`，另一個真實用戶端仍可寫入值 51。來自 fork 的 pull request 無法取得 id-token 權限，因此簽署發行版本的自我測試可能無法啟動。

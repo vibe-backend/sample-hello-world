@@ -46,16 +46,15 @@ COPY --from=verify /opt/vibe/bin/vibe /usr/local/bin/vibe
 WORKDIR /src
 COPY api/ ./api/
 COPY models/ ./models/
-COPY fixtures/ ./fixtures/
 COPY slugs.example.json ./
 # vibe build secret-scans the project and needs its .gitignore.
 COPY .gitignore ./
-ARG VIBE_LLM=replay
+# Keyless test build with the fake provider. No AI key.
+ARG VIBE_LLM=fake
 RUN set -eu; \
     case "$VIBE_LLM" in \
-      replay) LLM_PROVIDER=replay vibe build -o /out/manifest.json ;; \
       fake) LLM_PROVIDER=fake vibe build -o /out/manifest.json ;; \
-      *) printf '%s\n' 'VIBE_LLM must be replay or fake' >&2; exit 1 ;; \
+      *) printf '%s\n' 'VIBE_LLM must be fake' >&2; exit 1 ;; \
     esac; \
     mkdir -p /out/.vibe; cp .vibe/signing.pub /out/.vibe/signing.pub; \
     test -z "$(find /out -name signing.key -print)"; \
