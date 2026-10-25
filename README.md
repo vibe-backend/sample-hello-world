@@ -10,11 +10,11 @@ Anyone can use these APIs. The project uses default slug `dev`; URLs need no slu
 
 `backend/` holds `api/`, `models/`, `slugs.example.json`, `Dockerfile`, and `.gitignore`. `frontend/` holds the React page.
 
-Install SDK `v1.0.0-rc.6` with `curl`, `tar`, and an authenticated GitHub CLI (`gh auth login`). The installer verifies checksums and GitHub attestations. Add `--runtime` to install `vibe-runtime` too.
+Install SDK `v1.0.0-rc.7` with `curl`, `tar`, and an authenticated GitHub CLI (`gh auth login`). The installer verifies checksums and GitHub attestations. Add `--runtime` to install `vibe-runtime` too.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/vibe-backend/sdk/v1.0.0-rc.6/scripts/vibe-install.sh -o vibe-install.sh
-sh vibe-install.sh install --version v1.0.0-rc.6
+curl -fsSL https://raw.githubusercontent.com/vibe-backend/sdk/v1.0.0-rc.7/scripts/vibe-install.sh -o vibe-install.sh
+sh vibe-install.sh install --version v1.0.0-rc.7
 export PATH="$HOME/.local/bin:$PATH"
 cd backend
 vibe
@@ -55,8 +55,8 @@ Docker builds with the fake provider (`VIBE_LLM=fake`). The image has no AI key 
 
 This image is a dev/demo test build and must **NOT** run with `VIBE_ENV=production`: production refuses the in-memory store. For real use, add `backend/providers/main.md` with PostgreSQL. The manifest is development-signed; production signing is tracked in [sdk#309](https://github.com/vibe-backend/sdk/issues/309).
 
-The Dockerfile pins `VIBE_VERSION=v1.0.0-rc.6`, Debian base digests, and the v1.0.0-rc.6 `SHA256SUMS` digest (`VIBE_SHA256SUMS_SHA256`):
-`e40ffdb6aab0fa2226df1711c748baeed73d9ef145b67ff1edd4eeeb51aef09e`.
+The Dockerfile pins `VIBE_VERSION=v1.0.0-rc.7`, Debian base digests, and the v1.0.0-rc.7 `SHA256SUMS` digest (`VIBE_SHA256SUMS_SHA256`):
+`0313e084e60cbb64cc259172593610dacb8c07db46a119fc1b5a994bf1c68500`.
 Update version and digest together. Checksums and archive entry names are verified. Release assets must be published before building. The runtime image contains the manifest, public signing key, slug settings and runtime, runs as UID 10001, and sets `VIBE_ENV=development`, `VIBE_DB=memory`, and `VIBE_ALLOW_TEST_BUILD=1` with `--allow-test-build`. It contains no signing private key or AI settings.
 
 ## Signed releases
@@ -65,7 +65,7 @@ No release has been made yet; the first signed release happens later. A maintain
 
 Maintainers set up repository variables `VIBE_LLM_BASE_URL` and `VIBE_LLM_MODEL`, the `release` environment secret `VIBE_LLM_API_KEY`, and environment reviewers in GitHub settings, outside this repo. Use a public AI endpoint; private hosts are refused. The variables must be repository variables because the caller cannot read environment-scoped variables. Keep the SDK workflow tag equal to the runtime version.
 
-Deployers download the manifest and bundle into `dist/`, check the manifest digest against the workflow output, and use the SDK `v1.0.0-rc.6` runtime with `cosign` on `PATH`:
+Deployers download the manifest and bundle into `dist/`, check the manifest digest against the workflow output, and use the SDK `v1.0.0-rc.7` runtime with `cosign` on `PATH`:
 
 ```sh
 VIBE_ENV=development VIBE_RELEASE_VERSION=<version without v> vibe-runtime verify --artifact dist \
@@ -121,11 +121,11 @@ CI builds with the fake provider and puts generated locks in the job summary, te
 
 `backend/` 包含 `api/`、`models/`、`slugs.example.json`、`Dockerfile` 及 `.gitignore`。`frontend/` 包含 React 頁面。
 
-安裝 SDK `v1.0.0-rc.6`，需要 `curl`、`tar` 及已登入的 GitHub CLI（`gh auth login`）。安裝程式驗證校驗碼及 GitHub 證明；加上 `--runtime` 可同時安裝 `vibe-runtime`。
+安裝 SDK `v1.0.0-rc.7`，需要 `curl`、`tar` 及已登入的 GitHub CLI（`gh auth login`）。安裝程式驗證校驗碼及 GitHub 證明；加上 `--runtime` 可同時安裝 `vibe-runtime`。
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/vibe-backend/sdk/v1.0.0-rc.6/scripts/vibe-install.sh -o vibe-install.sh
-sh vibe-install.sh install --version v1.0.0-rc.6
+curl -fsSL https://raw.githubusercontent.com/vibe-backend/sdk/v1.0.0-rc.7/scripts/vibe-install.sh -o vibe-install.sh
+sh vibe-install.sh install --version v1.0.0-rc.7
 export PATH="$HOME/.local/bin:$PATH"
 cd backend
 vibe
@@ -166,8 +166,8 @@ Docker 以 fake provider 建置（`VIBE_LLM=fake`）。映像檔不含 AI 金鑰
 
 此映像檔是開發／示範測試建置，**不可**使用 `VIBE_ENV=production`：正式環境會拒絕記憶體儲存。實際使用請新增搭配 PostgreSQL 的 `backend/providers/main.md`。manifest 使用開發金鑰簽署，正式簽署進度見 [sdk#309](https://github.com/vibe-backend/sdk/issues/309)。
 
-Dockerfile 固定 `VIBE_VERSION=v1.0.0-rc.6`、Debian 基底摘要及 v1.0.0-rc.6 的 `SHA256SUMS` 摘要（`VIBE_SHA256SUMS_SHA256`）：
-`e40ffdb6aab0fa2226df1711c748baeed73d9ef145b67ff1edd4eeeb51aef09e`。
+Dockerfile 固定 `VIBE_VERSION=v1.0.0-rc.7`、Debian 基底摘要及 v1.0.0-rc.7 的 `SHA256SUMS` 摘要（`VIBE_SHA256SUMS_SHA256`）：
+`0313e084e60cbb64cc259172593610dacb8c07db46a119fc1b5a994bf1c68500`。
 升級時版本與摘要須一起更新。建置會驗證校驗碼及壓縮檔項目名稱；發行資產發布後才能建置。runtime 映像檔包含 manifest、簽署公鑰、slug 設定及 runtime，以 UID 10001 執行，設定 `VIBE_ENV=development`、`VIBE_DB=memory`、`VIBE_ALLOW_TEST_BUILD=1` 並傳入 `--allow-test-build`。不含簽署私鑰或 AI 設定。
 
 ### 簽署發行版本
@@ -176,7 +176,7 @@ Dockerfile 固定 `VIBE_VERSION=v1.0.0-rc.6`、Debian 基底摘要及 v1.0.0-rc.
 
 維護者須在 GitHub 設定中（而非此儲存庫內）設定儲存庫變數 `VIBE_LLM_BASE_URL`、`VIBE_LLM_MODEL`、`release` 環境的秘密 `VIBE_LLM_API_KEY` 及環境審閱者。請使用公開 AI 端點；私人主機會被拒絕。變數必須屬於儲存庫，因為呼叫端無法讀取環境範圍的變數。SDK 工作流程標籤須與 runtime 版本一致。
 
-部署者將 manifest 及 bundle 下載至 `dist/`，比對 manifest 摘要與工作流程輸出，再使用 SDK `v1.0.0-rc.6` runtime 驗證；`cosign` 必須位於 `PATH`：
+部署者將 manifest 及 bundle 下載至 `dist/`，比對 manifest 摘要與工作流程輸出，再使用 SDK `v1.0.0-rc.7` runtime 驗證；`cosign` 必須位於 `PATH`：
 
 ```sh
 VIBE_ENV=development VIBE_RELEASE_VERSION=<version without v> vibe-runtime verify --artifact dist \
