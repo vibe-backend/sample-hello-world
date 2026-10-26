@@ -45,7 +45,5 @@ jobs:
       llm-provider: openai
       llm-base-url: ${{ vars.VIBE_LLM_BASE_URL }}
       llm-model: ${{ vars.VIBE_LLM_MODEL }}
-      sdk_version: v1.0.0-rc.9
-      sdk_sha256sums_sha256: 21666579993f372880d1da5d8ef6bbdfca3f55a8b1cc8af8e6d0b89eea1c1afb
     secrets:
       llm-api-key: ${{ secrets.VIBE_LLM_API_KEY }} # environment secret in release
